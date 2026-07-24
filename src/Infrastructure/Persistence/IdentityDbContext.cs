@@ -14,6 +14,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<MfaCredential> MfaCredentials => Set<MfaCredential>();
     public DbSet<ServicePrincipal> ServicePrincipals => Set<ServicePrincipal>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<FederatedIdentity> FederatedIdentities => Set<FederatedIdentity>();
+    public DbSet<IdpGroupRoleMapping> IdpGroupRoleMappings => Set<IdpGroupRoleMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

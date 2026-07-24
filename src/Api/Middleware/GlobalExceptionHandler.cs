@@ -36,6 +36,16 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 (StatusCodes.Status401Unauthorized, new Problem("refresh_token_reuse_detected", exception.Message)),
             RefreshTokenRaceLostException =>
                 (StatusCodes.Status409Conflict, new Problem("refresh_token_race_lost", exception.Message)),
+            UserNotFoundException =>
+                (StatusCodes.Status404NotFound, new Problem("user_not_found", exception.Message)),
+            InvalidOrExpiredPasswordResetTokenException =>
+                (StatusCodes.Status400BadRequest, new Problem("invalid_or_expired_reset_token", exception.Message)),
+            EnterpriseIdpNotConfiguredException =>
+                (StatusCodes.Status404NotFound, new Problem("idp_not_configured", exception.Message)),
+            InvalidSamlAssertionException =>
+                (StatusCodes.Status401Unauthorized, new Problem("invalid_saml_assertion", exception.Message)),
+            SamlAssertionReplayException =>
+                (StatusCodes.Status409Conflict, new Problem("saml_assertion_replay", exception.Message)),
             _ => (0, null)
         };
 

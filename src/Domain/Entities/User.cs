@@ -46,4 +46,66 @@ public sealed class User
             UpdatedBy = self
         };
     }
+
+    /// <summary>
+    /// api-contract.yaml POST /auth/sso/enterprise/{idpAlias}/saml/acs — JIT
+    /// provisioning on first successful federation for an external identity with
+    /// no existing Kart account (edge-cases.md, "Federated Login With No Matching
+    /// Kart Account"). No password (federated accounts never gain a native one,
+    /// database-design.md); email is nullable since an enterprise assertion is
+    /// not guaranteed to carry an email claim.
+    /// </summary>
+    public static User ProvisionFederated(string? email, string displayName, AccountOrigin accountOrigin, DateTimeOffset now)
+    {
+        var userId = Guid.NewGuid();
+        var self = userId.ToString();
+
+        return new User
+        {
+            UserId = userId,
+            Email = email,
+            PasswordHash = null,
+            DisplayName = displayName,
+            AccountOrigin = accountOrigin,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = self,
+            UpdatedBy = self
+        };
+    }
+
+    /// <summary>
+    /// api-contract.yaml POST /internal/users/{userId}/lock — ADR-0010,
+    /// requirement-spec.md §2's admin-suspension FR. <paramref name="lockedBy"/> is
+    /// Admin Service's own service-principal client_id, from the calling
+    /// client-credentials token.
+    /// </summary>
+    public void Lock(DateTimeOffset now, string lockedBy)
+    {
+        LockedAt = now;
+        LockedBy = lockedBy;
+        UpdatedAt = now;
+        UpdatedBy = lockedBy;
+    }
+
+    /// <summary>api-contract.yaml POST /internal/users/{userId}/unlock.</summary>
+    public void Unlock(DateTimeOffset now, string unlockedBy)
+    {
+        LockedAt = null;
+        LockedBy = null;
+        UpdatedAt = now;
+        UpdatedBy = unlockedBy;
+    }
+
+    /// <summary>
+    /// api-contract.yaml POST /auth/password/reset-confirm. Always the owning
+    /// user themself (database-design.md: a reset is always performed by/on
+    /// behalf of that same user).
+    /// </summary>
+    public void SetPassword(string passwordHash, DateTimeOffset now)
+    {
+        PasswordHash = passwordHash;
+        UpdatedAt = now;
+        UpdatedBy = UserId.ToString();
+    }
 }

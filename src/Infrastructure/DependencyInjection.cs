@@ -1,4 +1,5 @@
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Infrastructure.Federation;
 using Kart.Identity.Infrastructure.Persistence;
 using Kart.Identity.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -67,6 +68,17 @@ public static class DependencyInjection
             ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis")!));
         services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
         services.AddScoped<IMfaChallengeStore, RedisMfaChallengeStore>();
+        services.AddScoped<ITokenRevocationStore, RedisTokenRevocationStore>();
+        services.AddScoped<ISamlAssertionReplayStore, RedisSamlAssertionReplayStore>();
+
+        // No enterprise IdP is named as already-integrated anywhere in the design
+        // docs (Okta/Azure AD/Google Workspace are the BRD's illustrative examples
+        // only) — this section is empty by default in every environment until an
+        // operator configures a real one.
+        services.Configure<Dictionary<string, EnterpriseIdpConfig>>(configuration.GetSection("EnterpriseIdps"));
+        services.AddSingleton<IEnterpriseIdpDirectory, ConfigEnterpriseIdpDirectory>();
+        services.AddSingleton<ISamlAuthnRequestBuilder, SamlAuthnRequestBuilder>();
+        services.AddSingleton<ISamlAssertionValidator, SamlAssertionValidator>();
 
         return services;
     }

@@ -11,7 +11,7 @@ namespace Kart.Identity.Application.Common.Behaviours;
 /// </summary>
 public sealed class ValidationBehaviour<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : notnull
 {
     public async Task<TResponse> Handle(
         TRequest request,

@@ -34,6 +34,8 @@ app.UseAuthorization();
 app.MapJwksEndpoints();
 app.MapAuthEndpoints();
 app.MapMfaEndpoints();
+app.MapInternalUserEndpoints();
+app.MapEnterpriseSsoEndpoints();
 
 app.Run();
 

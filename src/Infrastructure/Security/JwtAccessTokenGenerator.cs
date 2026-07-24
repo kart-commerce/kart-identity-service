@@ -35,7 +35,16 @@ public sealed class JwtAccessTokenGenerator : IAccessTokenGenerator, IDisposable
     public AccessToken Generate(string subject, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> scopes)
     {
         var now = DateTime.UtcNow;
-        var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, subject) };
+        // api-contract.yaml POST /auth/logout needs to address one specific,
+        // already-issued access token in the revocation list (not every token this
+        // subject holds) — `jti` is the standard JWT claim for that (edge-cases.md,
+        // "Stale Revocation Under Stateless JWT Validation" names the mechanism but
+        // not this claim-level detail).
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, subject),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
         claims.AddRange(roles.Select(role => new Claim("roles", role)));
         claims.AddRange(scopes.Select(scope => new Claim("scopes", scope)));
 

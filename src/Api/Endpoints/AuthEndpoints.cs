@@ -1,5 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Kart.Identity.Application.Features.ConfirmPasswordReset;
+using Kart.Identity.Application.Features.InitiatePasswordReset;
 using Kart.Identity.Application.Features.IssueServicePrincipalToken;
 using Kart.Identity.Application.Features.Login;
+using Kart.Identity.Application.Features.Logout;
 using Kart.Identity.Application.Features.RotateRefreshToken;
 using Kart.Identity.Application.Features.RegisterUser;
 using MediatR;
@@ -68,6 +73,39 @@ public static class AuthEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status409Conflict);
 
+        app.MapPost("/v1/auth/logout", async (LogoutRequest? request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var jti = httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Jti)!;
+            var expSeconds = long.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Exp)!);
+            var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expSeconds);
+
+            var command = new LogoutCommand(userId, jti, expiresAt, request?.RefreshToken);
+            await sender.Send(command, cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .WithName("Logout")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        app.MapPost("/v1/auth/password/reset-initiate", async (InitiatePasswordResetRequest request, ISender sender, CancellationToken cancellationToken) =>
+        {
+            await sender.Send(new InitiatePasswordResetCommand(request.Email), cancellationToken);
+            return Results.Accepted();
+        })
+        .WithName("InitiatePasswordReset")
+        .Produces(StatusCodes.Status202Accepted);
+
+        app.MapPost("/v1/auth/password/reset-confirm", async (ConfirmPasswordResetRequest request, ISender sender, CancellationToken cancellationToken) =>
+        {
+            await sender.Send(new ConfirmPasswordResetCommand(request.ResetToken, request.NewPassword), cancellationToken);
+            return Results.Ok();
+        })
+        .WithName("ConfirmPasswordReset")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+
         return app;
     }
 
@@ -76,4 +114,10 @@ public static class AuthEndpoints
     private sealed record LoginRequest(string Email, string Password);
 
     private sealed record RefreshRequest(string RefreshToken);
+
+    private sealed record LogoutRequest(string? RefreshToken);
+
+    private sealed record InitiatePasswordResetRequest(string Email);
+
+    private sealed record ConfirmPasswordResetRequest(string ResetToken, string NewPassword);
 }

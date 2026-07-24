@@ -24,6 +24,114 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pgcrypto");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kart.Identity.Domain.Entities.FederatedIdentity", b =>
+                {
+                    b.Property<Guid>("FederatedIdentityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("federated_identity_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("ExternalSubjectId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("external_subject_id");
+
+                    b.Property<string>("IdpKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("idp_key");
+
+                    b.Property<string>("IdpType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("idp_type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("FederatedIdentityId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("IdpType", "IdpKey", "ExternalSubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_federated_identities_external");
+
+                    b.ToTable("federated_identities", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_federated_identities_idp_type", "idp_type IN ('enterprise', 'social')");
+                        });
+                });
+
+            modelBuilder.Entity("Kart.Identity.Domain.Entities.IdpGroupRoleMapping", b =>
+                {
+                    b.Property<Guid>("MappingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mapping_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("ExternalGroupClaim")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("external_group_claim");
+
+                    b.Property<string>("IdpAlias")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("idp_alias");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("role");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("MappingId");
+
+                    b.HasIndex("IdpAlias", "ExternalGroupClaim")
+                        .IsUnique()
+                        .HasDatabaseName("uq_idp_group_role_mappings");
+
+                    b.ToTable("idp_group_role_mappings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_idp_group_role_mappings_role", "role IN ('support_agent', 'admin')");
+                        });
+                });
+
             modelBuilder.Entity("Kart.Identity.Domain.Entities.MfaCredential", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -128,6 +236,59 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Kart.Identity.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("ResetTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reset_token_id");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("ResetTokenId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("uq_password_reset_tokens_hash");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("password_reset_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Kart.Identity.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("TokenId")
@@ -135,6 +296,7 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnName("token_id");
 
                     b.Property<DateTimeOffset?>("ConsumedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("consumed_at");
 
@@ -415,11 +577,29 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Kart.Identity.Domain.Entities.FederatedIdentity", b =>
+                {
+                    b.HasOne("Kart.Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Kart.Identity.Domain.Entities.MfaCredential", b =>
                 {
                     b.HasOne("Kart.Identity.Domain.Entities.User", null)
                         .WithOne()
                         .HasForeignKey("Kart.Identity.Domain.Entities.MfaCredential", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kart.Identity.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.HasOne("Kart.Identity.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

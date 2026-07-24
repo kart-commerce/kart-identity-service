@@ -16,6 +16,13 @@ public sealed class Session
     /// <summary>requirement-spec.md §4: native refresh-token sliding window.</summary>
     public const int NativeSlidingWindowDays = 30;
 
+    /// <summary>
+    /// requirement-spec.md §4, edge-cases.md "Federated Session Can Outlive
+    /// IdP-Side Revocation Indefinitely": federated refresh-token absolute cap,
+    /// deliberately far shorter than native's and with no sliding extension.
+    /// </summary>
+    public const int FederatedAbsoluteCapHours = 24;
+
     public Guid SessionId { get; private set; }
     public Guid UserId { get; private set; }
     public bool IsFederated { get; private set; }
@@ -46,6 +53,28 @@ public sealed class Session
             IsFederated = false,
             CreatedAt = now,
             AbsoluteExpiresAt = now.AddDays(NativeAbsoluteCapDays),
+            CreatedBy = owner,
+            UpdatedAt = now,
+            UpdatedBy = owner
+        };
+    }
+
+    /// <summary>
+    /// api-contract.yaml POST /auth/sso/enterprise/{idpAlias}/saml/acs — a
+    /// federated session gets a 24-hour absolute cap with no sliding extension
+    /// (requirement-spec.md §4), unlike native's 30-day sliding / 90-day absolute.
+    /// </summary>
+    public static Session CreateFederated(Guid userId, string idpAlias, DateTimeOffset now)
+    {
+        var owner = userId.ToString();
+        return new Session
+        {
+            SessionId = Guid.NewGuid(),
+            UserId = userId,
+            IsFederated = true,
+            IdpAlias = idpAlias,
+            CreatedAt = now,
+            AbsoluteExpiresAt = now.AddHours(FederatedAbsoluteCapHours),
             CreatedBy = owner,
             UpdatedAt = now,
             UpdatedBy = owner

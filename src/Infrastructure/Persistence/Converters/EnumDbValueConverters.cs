@@ -33,6 +33,10 @@ internal static class EnumDbValueConverters
         v => ServicePrincipalStatusToDbValue(v),
         v => ServicePrincipalStatusFromDbValue(v));
 
+    public static readonly ValueConverter<FederatedIdpType, string> FederatedIdpType = new(
+        v => FederatedIdpTypeToDbValue(v),
+        v => FederatedIdpTypeFromDbValue(v));
+
     private static string AccountOriginToDbValue(AccountOrigin v) => v switch
     {
         Domain.Enums.AccountOrigin.Native => "native",
@@ -116,6 +120,20 @@ internal static class EnumDbValueConverters
     {
         "active" => Domain.Enums.ServicePrincipalStatus.Active,
         "revoked" => Domain.Enums.ServicePrincipalStatus.Revoked,
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static string FederatedIdpTypeToDbValue(FederatedIdpType v) => v switch
+    {
+        Domain.Enums.FederatedIdpType.Enterprise => "enterprise",
+        Domain.Enums.FederatedIdpType.Social => "social",
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static FederatedIdpType FederatedIdpTypeFromDbValue(string v) => v switch
+    {
+        "enterprise" => Domain.Enums.FederatedIdpType.Enterprise,
+        "social" => Domain.Enums.FederatedIdpType.Social,
         _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
     };
 }

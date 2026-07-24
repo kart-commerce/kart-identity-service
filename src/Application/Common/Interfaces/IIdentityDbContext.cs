@@ -18,6 +18,9 @@ public interface IIdentityDbContext
     DbSet<OutboxEvent> OutboxEvents { get; }
     DbSet<MfaCredential> MfaCredentials { get; }
     DbSet<ServicePrincipal> ServicePrincipals { get; }
+    DbSet<PasswordResetToken> PasswordResetTokens { get; }
+    DbSet<FederatedIdentity> FederatedIdentities { get; }
+    DbSet<IdpGroupRoleMapping> IdpGroupRoleMappings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
