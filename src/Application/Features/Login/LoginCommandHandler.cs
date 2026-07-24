@@ -95,7 +95,7 @@ public sealed class LoginCommandHandler(
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId, roleClaims, scopes: []);
+        var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
 
         return new AuthenticatedLoginResult(
             AccessToken: accessToken.Token,

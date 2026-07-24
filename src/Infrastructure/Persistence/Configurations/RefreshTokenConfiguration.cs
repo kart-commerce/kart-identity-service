@@ -27,7 +27,18 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
 
         builder.Property(t => t.IssuedAt).HasColumnName("issued_at").IsRequired();
         builder.Property(t => t.ExpiresAt).HasColumnName("expires_at").IsRequired();
-        builder.Property(t => t.ConsumedAt).HasColumnName("consumed_at");
+
+        // design-decisions.md, "Concurrency Control for Refresh-Token Rotation":
+        // an EF concurrency token makes every UPDATE EF issues for this entity
+        // include `WHERE consumed_at = <value read>` — exactly the DB-level
+        // conditional update edge-cases.md's "Concurrent Refresh Race" names,
+        // achieved via SaveChanges' own optimistic-concurrency check rather than
+        // a hand-written raw-SQL statement. A losing concurrent writer surfaces
+        // as DbUpdateConcurrencyException, portable across Npgsql/Sqlite/InMemory
+        // (verified: ExecuteUpdateAsync's raw conditional-UPDATE alternative is
+        // Npgsql/Sqlite-only and isn't available against the InMemory provider
+        // this codebase's own handler unit tests rely on).
+        builder.Property(t => t.ConsumedAt).HasColumnName("consumed_at").IsConcurrencyToken();
 
         builder.Property(t => t.ReplacedByTokenId).HasColumnName("replaced_by_token_id");
         builder.HasOne<RefreshToken>().WithMany().HasForeignKey(t => t.ReplacedByTokenId);

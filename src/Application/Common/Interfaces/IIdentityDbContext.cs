@@ -17,6 +17,7 @@ public interface IIdentityDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<OutboxEvent> OutboxEvents { get; }
     DbSet<MfaCredential> MfaCredentials { get; }
+    DbSet<ServicePrincipal> ServicePrincipals { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

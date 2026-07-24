@@ -51,4 +51,19 @@ public sealed class Session
             UpdatedBy = owner
         };
     }
+
+    /// <summary>
+    /// edge-cases.md, "Refresh Token Replay After Rotation": reuse of an
+    /// already-rotated-out token revokes "that token's entire family" — since
+    /// every refresh token in a rotation chain shares this one `session_id`
+    /// (never reassigned across rotations), revoking the session itself IS
+    /// revoking the whole family; no per-token fan-out write is needed.
+    /// </summary>
+    public void Revoke(SessionRevocationReason reason, DateTimeOffset now, string revokedBy)
+    {
+        RevokedAt = now;
+        RevokedReason = reason;
+        UpdatedAt = now;
+        UpdatedBy = revokedBy;
+    }
 }

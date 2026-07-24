@@ -32,10 +32,10 @@ public sealed class JwtAccessTokenGenerator : IAccessTokenGenerator, IDisposable
         _signingCredentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
     }
 
-    public AccessToken Generate(Guid userId, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> scopes)
+    public AccessToken Generate(string subject, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> scopes)
     {
         var now = DateTime.UtcNow;
-        var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, userId.ToString()) };
+        var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, subject) };
         claims.AddRange(roles.Select(role => new Claim("roles", role)));
         claims.AddRange(scopes.Select(scope => new Claim("scopes", scope)));
 

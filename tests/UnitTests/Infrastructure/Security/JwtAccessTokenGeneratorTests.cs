@@ -20,7 +20,7 @@ public class JwtAccessTokenGeneratorTests
         using var generator = new JwtAccessTokenGenerator(options);
         var userId = Guid.NewGuid();
 
-        var accessToken = generator.Generate(userId, ["customer"], []);
+        var accessToken = generator.Generate(userId.ToString(), ["customer"], []);
 
         Assert.Equal(900, accessToken.ExpiresInSeconds);
 

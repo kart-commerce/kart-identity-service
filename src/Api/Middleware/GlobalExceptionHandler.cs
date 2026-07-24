@@ -28,6 +28,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 (StatusCodes.Status429TooManyRequests, new Problem("rate_limited", exception.Message)),
             InvalidOrExpiredMfaCodeException =>
                 (StatusCodes.Status400BadRequest, new Problem("invalid_or_expired_code", exception.Message)),
+            InvalidMfaChallengeException =>
+                (StatusCodes.Status401Unauthorized, new Problem("invalid_mfa_challenge", exception.Message)),
+            InvalidServicePrincipalCredentialsException =>
+                (StatusCodes.Status401Unauthorized, new Problem("invalid_client", exception.Message)),
+            RefreshTokenReuseDetectedException =>
+                (StatusCodes.Status401Unauthorized, new Problem("refresh_token_reuse_detected", exception.Message)),
+            RefreshTokenRaceLostException =>
+                (StatusCodes.Status409Conflict, new Problem("refresh_token_race_lost", exception.Message)),
             _ => (0, null)
         };
 

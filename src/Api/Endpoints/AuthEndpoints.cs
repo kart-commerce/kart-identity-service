@@ -1,4 +1,6 @@
+using Kart.Identity.Application.Features.IssueServicePrincipalToken;
 using Kart.Identity.Application.Features.Login;
+using Kart.Identity.Application.Features.RotateRefreshToken;
 using Kart.Identity.Application.Features.RegisterUser;
 using MediatR;
 
@@ -40,10 +42,38 @@ public static class AuthEndpoints
         .ProducesProblem(StatusCodes.Status423Locked)
         .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
+        app.MapPost("/v1/auth/token", async (HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var form = await httpContext.Request.ReadFormAsync(cancellationToken);
+            var command = new IssueServicePrincipalTokenCommand(
+                form["grant_type"].ToString(),
+                form["client_id"].ToString(),
+                form["client_secret"].ToString(),
+                form["scope"].ToString() is { Length: > 0 } scope ? scope : null);
+            var response = await sender.Send(command, cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithName("IssueServicePrincipalToken")
+        .Accepts<IFormCollection>("application/x-www-form-urlencoded")
+        .Produces<IssueServicePrincipalTokenResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        app.MapPost("/v1/auth/refresh", async (RefreshRequest request, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var response = await sender.Send(new RotateRefreshTokenCommand(request.RefreshToken), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithName("RefreshToken")
+        .Produces<RotateRefreshTokenResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
         return app;
     }
 
     private sealed record RegisterRequest(string Email, string Password, string? DisplayName);
 
     private sealed record LoginRequest(string Email, string Password);
+
+    private sealed record RefreshRequest(string RefreshToken);
 }

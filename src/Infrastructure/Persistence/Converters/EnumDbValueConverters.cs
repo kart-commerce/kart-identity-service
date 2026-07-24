@@ -29,6 +29,10 @@ internal static class EnumDbValueConverters
         v => MfaCredentialStatusToDbValue(v),
         v => MfaCredentialStatusFromDbValue(v));
 
+    public static readonly ValueConverter<ServicePrincipalStatus, string> ServicePrincipalStatus = new(
+        v => ServicePrincipalStatusToDbValue(v),
+        v => ServicePrincipalStatusFromDbValue(v));
+
     private static string AccountOriginToDbValue(AccountOrigin v) => v switch
     {
         Domain.Enums.AccountOrigin.Native => "native",
@@ -98,6 +102,20 @@ internal static class EnumDbValueConverters
     {
         "pending" => Domain.Enums.MfaCredentialStatus.Pending,
         "active" => Domain.Enums.MfaCredentialStatus.Active,
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static string ServicePrincipalStatusToDbValue(ServicePrincipalStatus v) => v switch
+    {
+        Domain.Enums.ServicePrincipalStatus.Active => "active",
+        Domain.Enums.ServicePrincipalStatus.Revoked => "revoked",
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static ServicePrincipalStatus ServicePrincipalStatusFromDbValue(string v) => v switch
+    {
+        "active" => Domain.Enums.ServicePrincipalStatus.Active,
+        "revoked" => Domain.Enums.ServicePrincipalStatus.Revoked,
         _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
     };
 }

@@ -10,5 +10,12 @@ namespace Kart.Identity.Application.Common.Interfaces;
 /// </summary>
 public interface IAccessTokenGenerator
 {
-    AccessToken Generate(Guid userId, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> scopes);
+    /// <summary>
+    /// <paramref name="subject"/> becomes the JWT `sub` claim — a user's
+    /// <c>Guid</c> for native/federated logins, or a service principal's
+    /// `client_id` (not a Guid) for the Client Credentials flow (IDN-7);
+    /// deliberately a string rather than <c>Guid</c> so both share this one
+    /// minting path (single-issuer invariant, requirement-spec.md §4).
+    /// </summary>
+    AccessToken Generate(string subject, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> scopes);
 }

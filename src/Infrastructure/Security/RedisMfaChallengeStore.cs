@@ -19,7 +19,7 @@ public sealed class RedisMfaChallengeStore(IConnectionMultiplexer redis, IOpaque
     public async Task<MfaChallenge> CreateAsync(Guid userId, IReadOnlyCollection<string> roles, CancellationToken cancellationToken)
     {
         var challengeId = opaqueTokenGenerator.Generate();
-        var payload = JsonSerializer.Serialize(new { userId, roles });
+        var payload = JsonSerializer.Serialize(new ChallengePayload(userId, roles));
 
         var db = redis.GetDatabase();
         await db.StringSetAsync(ChallengeKey(challengeId), payload, ChallengeTtl);
@@ -27,5 +27,20 @@ public sealed class RedisMfaChallengeStore(IConnectionMultiplexer redis, IOpaque
         return new MfaChallenge(challengeId, (int)ChallengeTtl.TotalSeconds);
     }
 
+    public async Task<MfaChallengeState?> GetAndConsumeAsync(string challengeId, CancellationToken cancellationToken)
+    {
+        var db = redis.GetDatabase();
+        var payload = await db.StringGetDeleteAsync(ChallengeKey(challengeId));
+        if (payload.IsNullOrEmpty)
+        {
+            return null;
+        }
+
+        var parsed = JsonSerializer.Deserialize<ChallengePayload>(payload!)!;
+        return new MfaChallengeState(parsed.UserId, parsed.Roles);
+    }
+
     private static string ChallengeKey(string challengeId) => $"identity:mfa-challenge:{challengeId}";
+
+    private sealed record ChallengePayload(Guid UserId, IReadOnlyCollection<string> Roles);
 }

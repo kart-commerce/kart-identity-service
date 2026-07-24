@@ -89,7 +89,7 @@ public class RegisterUserCommandHandlerTests
 
         var accessTokenGenerator = Substitute.For<IAccessTokenGenerator>();
         accessTokenGenerator
-            .Generate(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<IReadOnlyCollection<string>>())
+            .Generate(Arg.Any<string>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<IReadOnlyCollection<string>>())
             .Returns(new AccessToken("minted-access-token", 900));
 
         var opaqueTokenGenerator = Substitute.For<IOpaqueTokenGenerator>();
