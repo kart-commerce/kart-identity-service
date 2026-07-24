@@ -27,7 +27,9 @@ contracts/              # synced copy of the approved api-contract.yaml (see con
 
 ## Running locally
 
-Requires the .NET 8 SDK.
+Requires the .NET 8 SDK and a PostgreSQL instance (with the `citext` and
+`pgcrypto` extensions available — both are created automatically by the
+migration).
 
 ```
 dotnet build
@@ -47,4 +49,14 @@ Generate a throwaway local key with:
 
 ```
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /path/to/dev-private-key.pem
+```
+
+The database connection string is also a secret in production (set via
+`ConnectionStrings__IdentityDb`); `src/Api/appsettings.Development.json`
+already points `dotnet run`'s default (`Development`) environment at a local
+`postgres:postgres@localhost:5432/kart_identity` instance, e.g.:
+
+```
+docker run -d --name kart-identity-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=kart_identity -p 5432:5432 postgres:16
+dotnet ef database update --project src/Infrastructure --startup-project src/Infrastructure
 ```

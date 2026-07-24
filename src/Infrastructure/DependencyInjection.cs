@@ -1,5 +1,7 @@
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Infrastructure.Persistence;
 using Kart.Identity.Infrastructure.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +18,15 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IJwtKeyProvider, RsaJwtKeyProvider>();
+        services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
+        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddSingleton<IOpaqueTokenGenerator, SecureOpaqueTokenGenerator>();
+        services.AddSingleton<ITokenHasher, Sha256TokenHasher>();
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+
+        services.AddDbContext<IdentityDbContext>(options =>
+            options.UseNpgsql(configuration.GetConnectionString("IdentityDb")));
+        services.AddScoped<IIdentityDbContext>(sp => sp.GetRequiredService<IdentityDbContext>());
 
         return services;
     }
