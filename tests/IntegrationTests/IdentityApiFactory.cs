@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Security.Cryptography;
+using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,18 +9,21 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using StackExchange.Redis;
 
 namespace Kart.Identity.IntegrationTests;
 
 /// <summary>
-/// Swaps the production Npgsql-backed <see cref="IdentityDbContext"/> registration
-/// for an in-memory Sqlite one, so the full register-endpoint request pipeline
-/// (routing, MediatR validation behaviour, DI wiring, JSON serialization, exception
-/// handling) can be exercised over real HTTP without a Postgres dependency. Uses
-/// <c>EnsureCreated</c> (not the Npgsql-flavored migrations) since the schema is
-/// built directly from the current EF model against whichever provider is active.
+/// Swaps the production Npgsql-backed <see cref="IdentityDbContext"/> for an
+/// in-memory Sqlite one, and the Redis-backed login-throttle/MFA-challenge
+/// services for in-memory test doubles, so the full request pipeline (routing,
+/// MediatR validation behaviour, DI wiring, JSON serialization, exception
+/// handling) can be exercised over real HTTP without a Postgres or Redis
+/// dependency. Uses <c>EnsureCreated</c> (not the Npgsql-flavored migrations)
+/// since the schema is built directly from the current EF model against
+/// whichever provider is active.
 /// </summary>
-public sealed class RegisterEndpointApiFactory : WebApplicationFactory<Program>
+public sealed class IdentityApiFactory : WebApplicationFactory<Program>
 {
     private readonly DbConnection _connection = new SqliteConnection("DataSource=:memory:");
 
@@ -40,9 +44,14 @@ public sealed class RegisterEndpointApiFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<IdentityDbContext>>();
-
             _connection.Open();
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_connection));
+
+            services.RemoveAll<IConnectionMultiplexer>();
+            services.RemoveAll<ILoginAttemptThrottle>();
+            services.RemoveAll<IMfaChallengeStore>();
+            services.AddSingleton<ILoginAttemptThrottle, InMemoryLoginAttemptThrottle>();
+            services.AddSingleton<IMfaChallengeStore, InMemoryMfaChallengeStore>();
 
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();

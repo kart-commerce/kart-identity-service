@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Security.Cryptography;
+using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,14 +9,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using StackExchange.Redis;
 
 namespace Kart.Identity.ContractTests;
 
 /// <summary>
-/// Same DB-provider swap as IntegrationTests/RegisterEndpointApiFactory — POST
-/// /auth/register needs a database, unlike GetJwks (JwksApiFactory).
+/// Same DB/Redis test-double swap as IntegrationTests/IdentityApiFactory — every
+/// endpoint past GetJwks (JwksApiFactory) needs a database, and /auth/login also
+/// needs the login-throttle/MFA-challenge services.
 /// </summary>
-public sealed class RegisterApiFactory : WebApplicationFactory<Program>
+public sealed class IdentityApiFactory : WebApplicationFactory<Program>
 {
     private readonly DbConnection _connection = new SqliteConnection("DataSource=:memory:");
 
@@ -36,9 +39,14 @@ public sealed class RegisterApiFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<IdentityDbContext>>();
-
             _connection.Open();
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_connection));
+
+            services.RemoveAll<IConnectionMultiplexer>();
+            services.RemoveAll<ILoginAttemptThrottle>();
+            services.RemoveAll<IMfaChallengeStore>();
+            services.AddSingleton<ILoginAttemptThrottle, InMemoryLoginAttemptThrottle>();
+            services.AddSingleton<IMfaChallengeStore, InMemoryMfaChallengeStore>();
 
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();

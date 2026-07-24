@@ -20,6 +20,12 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 (StatusCodes.Status400BadRequest, ToValidationProblem(validationException)),
             EmailAlreadyRegisteredException =>
                 (StatusCodes.Status409Conflict, new Problem("email_already_registered", exception.Message)),
+            InvalidCredentialsException =>
+                (StatusCodes.Status401Unauthorized, new Problem("invalid_credentials", exception.Message)),
+            AccountLockedException =>
+                (StatusCodes.Status423Locked, new Problem("account_locked", exception.Message)),
+            LoginRateLimitExceededException =>
+                (StatusCodes.Status429TooManyRequests, new Problem("rate_limited", exception.Message)),
             _ => (0, null)
         };
 

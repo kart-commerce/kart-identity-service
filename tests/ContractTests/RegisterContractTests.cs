@@ -11,13 +11,13 @@ namespace Kart.Identity.ContractTests;
 /// POST /auth/register path — both that the contract still describes the shape
 /// this handler implements, and that the live endpoint matches it.
 /// </summary>
-public class RegisterContractTests : IClassFixture<RegisterApiFactory>
+public class RegisterContractTests : IClassFixture<IdentityApiFactory>
 {
     private const string ContractPath = "/auth/register";
     private const string RequestPath = "/v1/auth/register";
-    private readonly RegisterApiFactory _factory;
+    private readonly IdentityApiFactory _factory;
 
-    public RegisterContractTests(RegisterApiFactory factory) => _factory = factory;
+    public RegisterContractTests(IdentityApiFactory factory) => _factory = factory;
 
     [Fact]
     public void Contract_DefinesRegisterPathWithTokenPairResponse()

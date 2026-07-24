@@ -5,12 +5,12 @@ using System.Text.Json;
 namespace Kart.Identity.IntegrationTests;
 
 /// <summary>Exercises api-contract.yaml POST /v1/auth/register end to end over real HTTP.</summary>
-public class RegisterEndpointTests : IClassFixture<RegisterEndpointApiFactory>
+public class RegisterEndpointTests : IClassFixture<IdentityApiFactory>
 {
     private const string RegisterPath = "/v1/auth/register";
-    private readonly RegisterEndpointApiFactory _factory;
+    private readonly IdentityApiFactory _factory;
 
-    public RegisterEndpointTests(RegisterEndpointApiFactory factory) => _factory = factory;
+    public RegisterEndpointTests(IdentityApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Register_NewAccount_Returns201WithTokenPair()

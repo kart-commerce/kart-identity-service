@@ -32,4 +32,28 @@ public class BcryptPasswordHasherTests
         Assert.True(BCrypt.Net.BCrypt.EnhancedVerify("SuperSecret1", hash));
         Assert.False(BCrypt.Net.BCrypt.EnhancedVerify("WrongPassword", hash));
     }
+
+    [Fact]
+    public void Verify_CorrectPassword_ReturnsTrue()
+    {
+        var hash = _hasher.Hash("SuperSecret1");
+
+        Assert.True(_hasher.Verify("SuperSecret1", hash));
+    }
+
+    [Fact]
+    public void Verify_WrongPassword_ReturnsFalse()
+    {
+        var hash = _hasher.Hash("SuperSecret1");
+
+        Assert.False(_hasher.Verify("WrongPassword", hash));
+    }
+
+    [Fact]
+    public void Verify_NullHash_ReturnsFalse()
+    {
+        // /auth/login's timing-attack mitigation path (unknown account or a
+        // federated account with no native password) — must not throw.
+        Assert.False(_hasher.Verify("AnyPassword1", null));
+    }
 }

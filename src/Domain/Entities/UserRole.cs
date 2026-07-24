@@ -22,22 +22,23 @@ public sealed class UserRole
     {
     }
 
-    /// <summary>
-    /// database-design.md: native self-registration always grants exactly
-    /// `Customer`, `granted_by = 'self-registration'`.
-    /// </summary>
-    public static UserRole GrantSelfRegisteredCustomer(Guid userId, DateTimeOffset now)
-    {
-        const string grantedBy = "self-registration";
-        return new UserRole
+    /// <summary>ddd-model.md's `RoleGrant` value object — `(Role, GrantedAt, GrantedBy)`.</summary>
+    public static UserRole Grant(Guid userId, PlatformRole role, string grantedBy, DateTimeOffset now) =>
+        new()
         {
             UserRoleId = Guid.NewGuid(),
             UserId = userId,
-            Role = PlatformRole.Customer,
+            Role = role,
             GrantedAt = now,
             GrantedBy = grantedBy,
             UpdatedAt = now,
             UpdatedBy = grantedBy
         };
-    }
+
+    /// <summary>
+    /// database-design.md: native self-registration always grants exactly
+    /// `Customer`, `granted_by = 'self-registration'`.
+    /// </summary>
+    public static UserRole GrantSelfRegisteredCustomer(Guid userId, DateTimeOffset now) =>
+        Grant(userId, PlatformRole.Customer, grantedBy: "self-registration", now);
 }

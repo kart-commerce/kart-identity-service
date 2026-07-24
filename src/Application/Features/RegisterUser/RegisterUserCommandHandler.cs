@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -23,8 +24,6 @@ public sealed class RegisterUserCommandHandler(
     IDateTimeProvider dateTimeProvider)
     : IRequestHandler<RegisterUserCommand, RegisterUserResponse>
 {
-    private const string CustomerRoleClaim = "customer";
-
     public async Task<RegisterUserResponse> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
         var email = request.Email.Trim();
@@ -52,7 +51,7 @@ public sealed class RegisterUserCommandHandler(
         var createdBy = user.UserId.ToString();
         var refreshToken = RefreshToken.IssueInitial(session.SessionId, refreshTokenHash, now, session.AbsoluteExpiresAt, createdBy);
 
-        var roles = new[] { CustomerRoleClaim };
+        var roles = new[] { PlatformRoleClaims.ToClaimValue(PlatformRole.Customer) };
         var accessToken = accessTokenGenerator.Generate(user.UserId, roles, scopes: []);
 
         var userRegistered = OutboxEvent.Create(
