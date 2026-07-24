@@ -58,7 +58,7 @@ already points `dotnet run`'s default (`Development`) environment at a local
 instance matching:
 
 ```
-docker run -d --name kart-identity-db -e POSTGRES_USER=kart_pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=kart_identity -p 5432:5432 postgres:16
+docker run -d --name kart-identity-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=kart_identity -p 5432:5432 postgres:16
 dotnet ef database update --project src/Infrastructure --startup-project src/Infrastructure
 ```
 
@@ -68,4 +68,12 @@ non-secret-in-dev but still supplied via env var / K8s Secret in production;
 
 ```
 docker run -d --name kart-identity-redis -p 6379:6379 redis:7
+```
+
+The AES-256 key used to encrypt TOTP secrets at rest (`mfa_credentials`,
+requirement-spec.md §4) is also a secret in production (`Mfa__Encryption__KeyBase64`).
+Generate a throwaway local one with:
+
+```
+openssl rand -base64 32
 ```

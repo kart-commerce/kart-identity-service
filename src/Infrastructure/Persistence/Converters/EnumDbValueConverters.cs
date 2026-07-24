@@ -25,6 +25,10 @@ internal static class EnumDbValueConverters
         v => SessionRevocationReasonToDbValue(v),
         v => SessionRevocationReasonFromDbValue(v));
 
+    public static readonly ValueConverter<MfaCredentialStatus, string> MfaCredentialStatus = new(
+        v => MfaCredentialStatusToDbValue(v),
+        v => MfaCredentialStatusFromDbValue(v));
+
     private static string AccountOriginToDbValue(AccountOrigin v) => v switch
     {
         Domain.Enums.AccountOrigin.Native => "native",
@@ -80,6 +84,20 @@ internal static class EnumDbValueConverters
         "role_change" => Domain.Enums.SessionRevocationReason.RoleChange,
         "password_reset" => Domain.Enums.SessionRevocationReason.PasswordReset,
         "erasure" => Domain.Enums.SessionRevocationReason.Erasure,
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static string MfaCredentialStatusToDbValue(MfaCredentialStatus v) => v switch
+    {
+        Domain.Enums.MfaCredentialStatus.Pending => "pending",
+        Domain.Enums.MfaCredentialStatus.Active => "active",
+        _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
+    };
+
+    private static MfaCredentialStatus MfaCredentialStatusFromDbValue(string v) => v switch
+    {
+        "pending" => Domain.Enums.MfaCredentialStatus.Pending,
+        "active" => Domain.Enums.MfaCredentialStatus.Active,
         _ => throw new ArgumentOutOfRangeException(nameof(v), v, null)
     };
 }

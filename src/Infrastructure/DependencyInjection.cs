@@ -1,9 +1,11 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Persistence;
 using Kart.Identity.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 
 namespace Kart.Identity.Infrastructure;
@@ -19,11 +21,39 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IJwtKeyProvider, RsaJwtKeyProvider>();
+
+        // Identity is both issuer and, for its own bearer-protected endpoints
+        // (e.g. POST /auth/mfa/enroll), validator of its own RS256 tokens —
+        // validated against the same public key it publishes via JWKS.
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IJwtKeyProvider>((options, keyProvider) =>
+            {
+                var resolver = new JwksIssuerSigningKeyResolver(keyProvider);
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKeyResolver = resolver.Resolve,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true
+                };
+            });
+        services.AddAuthorization();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<IOpaqueTokenGenerator, SecureOpaqueTokenGenerator>();
         services.AddSingleton<ITokenHasher, Sha256TokenHasher>();
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddSingleton<ITotpProvisioningService, TotpProvisioningService>();
+
+        services
+            .AddOptions<MfaEncryptionOptions>()
+            .Bind(configuration.GetSection(MfaEncryptionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddSingleton<IMfaSecretCipher, AesMfaSecretCipher>();
 
         services.AddDbContext<IdentityDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("IdentityDb")));

@@ -12,6 +12,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<MfaCredential> MfaCredentials => Set<MfaCredential>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -37,7 +37,8 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Jwt:SigningKey:Kid"] = "integration-test-kid",
-                ["Jwt:SigningKey:PrivateKeyPem"] = testPrivateKeyPem
+                ["Jwt:SigningKey:PrivateKeyPem"] = testPrivateKeyPem,
+                ["Mfa:Encryption:KeyBase64"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             });
         });
 

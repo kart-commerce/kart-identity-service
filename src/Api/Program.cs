@@ -25,11 +25,15 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 // api-contract.yaml: every versioned business endpoint starts at /v1
 // (kart-conventions.md, "API Versioning"); /.well-known/jwks.json is the one
 // deliberate exception (IANA well-known discovery path convention).
 app.MapJwksEndpoints();
 app.MapAuthEndpoints();
+app.MapMfaEndpoints();
 
 app.Run();
 
