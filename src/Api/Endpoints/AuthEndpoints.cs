@@ -7,6 +7,7 @@ using Kart.Identity.Application.Features.Login;
 using Kart.Identity.Application.Features.Logout;
 using Kart.Identity.Application.Features.RotateRefreshToken;
 using Kart.Identity.Application.Features.RegisterUser;
+using Kart.Identity.Application.Features.UpdateProfile;
 using MediatR;
 
 namespace Kart.Identity.Api.Endpoints;
@@ -89,6 +90,19 @@ public static class AuthEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        app.MapPatch("/v1/auth/profile", async (UpdateProfileRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            var response = await sender.Send(new UpdateProfileCommand(userId, request.Email, request.DisplayName), cancellationToken);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization()
+        .WithName("UpdateProfile")
+        .Produces<UpdateProfileResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+
         app.MapPost("/v1/auth/password/reset-initiate", async (InitiatePasswordResetRequest request, ISender sender, CancellationToken cancellationToken) =>
         {
             await sender.Send(new InitiatePasswordResetCommand(request.Email), cancellationToken);
@@ -116,6 +130,8 @@ public static class AuthEndpoints
     private sealed record RefreshRequest(string RefreshToken);
 
     private sealed record LogoutRequest(string? RefreshToken);
+
+    private sealed record UpdateProfileRequest(string? Email, string? DisplayName);
 
     private sealed record InitiatePasswordResetRequest(string Email);
 

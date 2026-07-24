@@ -36,6 +36,7 @@ app.MapAuthEndpoints();
 app.MapMfaEndpoints();
 app.MapInternalUserEndpoints();
 app.MapEnterpriseSsoEndpoints();
+app.MapSocialSsoEndpoints();
 
 app.Run();
 

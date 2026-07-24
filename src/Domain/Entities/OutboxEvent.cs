@@ -3,8 +3,10 @@ namespace Kart.Identity.Domain.Entities;
 /// <summary>
 /// database-design.md `outbox_events` — Transactional Outbox (design-decisions.md,
 /// "Event Publication Reliability"). Written in the same transaction as the domain
-/// mutation that produced it; relayed to `ecommerce.events` by a separate poller
-/// process (not part of this vertical slice).
+/// mutation that produced it; relayed to this service's own `identity.exchange`
+/// (kart-conventions.md — one topic exchange per publishing service, no shared
+/// exchange; message-bus-manifest.json) by a separate poller process (not part of
+/// this vertical slice).
 /// </summary>
 public sealed class OutboxEvent
 {

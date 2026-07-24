@@ -24,7 +24,8 @@ public class StartEnterpriseFederationQueryHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        var handler = new StartEnterpriseFederationQueryHandler(idpDirectory, authnRequestBuilder, dateTimeProvider);
+        var handler = new StartEnterpriseFederationQueryHandler(
+            idpDirectory, authnRequestBuilder, Substitute.For<IOidcAuthorizationRequestBuilder>(), dateTimeProvider);
 
         var redirectUrl = await handler.Handle(new StartEnterpriseFederationQuery("okta-acme"), CancellationToken.None);
 
@@ -38,9 +39,28 @@ public class StartEnterpriseFederationQueryHandlerTests
         idpDirectory.Find("unknown-idp").Returns((EnterpriseIdpDescriptor?)null);
 
         var handler = new StartEnterpriseFederationQueryHandler(
-            idpDirectory, Substitute.For<ISamlAuthnRequestBuilder>(), Substitute.For<IDateTimeProvider>());
+            idpDirectory, Substitute.For<ISamlAuthnRequestBuilder>(), Substitute.For<IOidcAuthorizationRequestBuilder>(), Substitute.For<IDateTimeProvider>());
 
         await Assert.ThrowsAsync<EnterpriseIdpNotConfiguredException>(
             () => handler.Handle(new StartEnterpriseFederationQuery("unknown-idp"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Handle_OidcConfiguredIdp_ReturnsAuthorizationRedirectUrl()
+    {
+        var oidc = new OidcProviderDescriptor("azure-ad", "https://login.example.com/authorize", "https://login.example.com/token", "client-id", "client-secret", "https://identity.example.com/oidc/callback", "https://login.example.com", "cert-pem");
+        var idp = new EnterpriseIdpDescriptor("azure-ad", string.Empty, string.Empty, string.Empty, string.Empty, EnterpriseIdpProtocol.Oidc, oidc);
+        var idpDirectory = Substitute.For<IEnterpriseIdpDirectory>();
+        idpDirectory.Find("azure-ad").Returns(idp);
+
+        var oidcAuthorizationRequestBuilder = Substitute.For<IOidcAuthorizationRequestBuilder>();
+        oidcAuthorizationRequestBuilder.BuildRedirectUrl(oidc, Arg.Any<string>()).Returns("https://login.example.com/authorize?response_type=code");
+
+        var handler = new StartEnterpriseFederationQueryHandler(
+            idpDirectory, Substitute.For<ISamlAuthnRequestBuilder>(), oidcAuthorizationRequestBuilder, Substitute.For<IDateTimeProvider>());
+
+        var redirectUrl = await handler.Handle(new StartEnterpriseFederationQuery("azure-ad"), CancellationToken.None);
+
+        Assert.Equal("https://login.example.com/authorize?response_type=code", redirectUrl);
     }
 }

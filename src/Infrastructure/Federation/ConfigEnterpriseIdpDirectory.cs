@@ -14,6 +14,18 @@ public sealed class ConfigEnterpriseIdpDirectory(IOptions<Dictionary<string, Ent
             return null;
         }
 
-        return new EnterpriseIdpDescriptor(idpAlias, config.SsoUrl, config.SpEntityId, config.AssertionConsumerServiceUrl, config.SigningCertificatePem);
+        var protocol = string.Equals(config.Protocol, "oidc", StringComparison.OrdinalIgnoreCase)
+            ? EnterpriseIdpProtocol.Oidc
+            : EnterpriseIdpProtocol.Saml;
+
+        var oidc = protocol == EnterpriseIdpProtocol.Oidc
+            ? new OidcProviderDescriptor(
+                idpAlias, config.AuthorizationEndpoint, config.TokenEndpoint, config.ClientId,
+                config.ClientSecret, config.RedirectUri, config.Issuer, config.SigningCertificatePem)
+            : null;
+
+        return new EnterpriseIdpDescriptor(
+            idpAlias, config.SsoUrl, config.SpEntityId, config.AssertionConsumerServiceUrl, config.SigningCertificatePem,
+            protocol, oidc);
     }
 }

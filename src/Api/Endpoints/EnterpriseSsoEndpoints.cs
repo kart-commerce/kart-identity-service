@@ -1,3 +1,4 @@
+using Kart.Identity.Application.Features.EnterpriseOidcCallback;
 using Kart.Identity.Application.Features.EnterpriseSamlAssertionConsumer;
 using Kart.Identity.Application.Features.StartEnterpriseFederation;
 using MediatR;
@@ -30,6 +31,15 @@ public static class EnterpriseSsoEndpoints
         .Produces<EnterpriseSamlAssertionConsumerResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        app.MapGet("/v1/auth/sso/enterprise/{idpAlias}/oidc/callback", async (string idpAlias, string code, string state, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var response = await sender.Send(new EnterpriseOidcCallbackCommand(idpAlias, code, state), cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithName("EnterpriseOidcCallback")
+        .Produces<EnterpriseOidcCallbackResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }

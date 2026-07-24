@@ -80,6 +80,20 @@ public static class DependencyInjection
         services.AddSingleton<ISamlAuthnRequestBuilder, SamlAuthnRequestBuilder>();
         services.AddSingleton<ISamlAssertionValidator, SamlAssertionValidator>();
 
+        // Customer social-login providers (IDN-17/IDN-18) — same "empty by
+        // default, operator-configured" treatment as EnterpriseIdps above.
+        services.Configure<Dictionary<string, SocialIdpConfig>>(configuration.GetSection("SocialIdps"));
+        services.AddSingleton<ISocialIdpDirectory, ConfigSocialIdpDirectory>();
+
+        // Shared OIDC relying-party building blocks for enterprise OIDC federation
+        // (IDN-16) and social login (IDN-17/IDN-18). The named HttpClient carries no
+        // per-provider resilience of its own — design-decisions.md's per-IdP circuit
+        // breaker/bulkhead/timeout is applied inside OidcTokenExchangeClient, keyed on
+        // each provider's own ProviderKey, not on this shared transport client.
+        services.AddHttpClient("oidc-token-exchange");
+        services.AddSingleton<IOidcAuthorizationRequestBuilder, OidcAuthorizationRequestBuilder>();
+        services.AddSingleton<IOidcTokenExchangeClient, OidcTokenExchangeClient>();
+
         return services;
     }
 }

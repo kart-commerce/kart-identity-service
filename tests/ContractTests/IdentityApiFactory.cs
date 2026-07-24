@@ -26,6 +26,20 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
     public const string TestIdpSsoUrl = "https://idp.example.com/sso";
     public const string TestIdpAcsUrl = "https://identity.example.com/acs";
 
+    public const string TestOidcIdpAlias = "test-oidc-idp";
+    public const string TestOidcIssuer = "https://oidc-idp.example.com";
+    public const string TestOidcClientId = "kart-identity-service-oidc-client";
+    public const string TestOidcAuthorizationEndpoint = "https://oidc-idp.example.com/authorize";
+    public const string TestOidcTokenEndpoint = "https://oidc-idp.example.com/token";
+    public const string TestOidcRedirectUri = "https://identity.example.com/oidc/callback";
+
+    public const string TestSocialProvider = "test-social";
+    public const string TestSocialIssuer = "https://social-idp.example.com";
+    public const string TestSocialClientId = "kart-identity-service-social-client";
+    public const string TestSocialAuthorizationEndpoint = "https://social-idp.example.com/authorize";
+    public const string TestSocialTokenEndpoint = "https://social-idp.example.com/token";
+    public const string TestSocialRedirectUri = "https://identity.example.com/social/callback";
+
     private readonly DbConnection _connection = new SqliteConnection("DataSource=:memory:");
 
     /// <summary>
@@ -35,12 +49,25 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public X509Certificate2 TestIdpCertificate { get; }
 
+    /// <summary>Signs id_tokens <see cref="FakeOidcTokenEndpointHandler"/> mints for `test-oidc-idp`.</summary>
+    public X509Certificate2 TestOidcIdpCertificate { get; }
+
+    /// <summary>Signs id_tokens <see cref="FakeOidcTokenEndpointHandler"/> mints for `test-social`.</summary>
+    public X509Certificate2 TestSocialIdpCertificate { get; }
+
     public IdentityApiFactory()
     {
+        TestIdpCertificate = CreateEphemeralCertificate(TestIdpAlias);
+        TestOidcIdpCertificate = CreateEphemeralCertificate(TestOidcIdpAlias);
+        TestSocialIdpCertificate = CreateEphemeralCertificate(TestSocialProvider);
+    }
+
+    private static X509Certificate2 CreateEphemeralCertificate(string commonName)
+    {
         using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest($"CN={TestIdpAlias}", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var request = new CertificateRequest($"CN={commonName}", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         using var ephemeralCert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
-        TestIdpCertificate = new X509Certificate2(ephemeralCert.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.Exportable);
+        return new X509Certificate2(ephemeralCert.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.Exportable);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -58,7 +85,24 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
                 [$"EnterpriseIdps:{TestIdpAlias}:SsoUrl"] = TestIdpSsoUrl,
                 [$"EnterpriseIdps:{TestIdpAlias}:SpEntityId"] = TestIdpSpEntityId,
                 [$"EnterpriseIdps:{TestIdpAlias}:AssertionConsumerServiceUrl"] = TestIdpAcsUrl,
-                [$"EnterpriseIdps:{TestIdpAlias}:SigningCertificatePem"] = TestIdpCertificate.ExportCertificatePem()
+                [$"EnterpriseIdps:{TestIdpAlias}:SigningCertificatePem"] = TestIdpCertificate.ExportCertificatePem(),
+
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:Protocol"] = "oidc",
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:AuthorizationEndpoint"] = TestOidcAuthorizationEndpoint,
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:TokenEndpoint"] = TestOidcTokenEndpoint,
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:ClientId"] = TestOidcClientId,
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:ClientSecret"] = "test-client-secret",
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:RedirectUri"] = TestOidcRedirectUri,
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:Issuer"] = TestOidcIssuer,
+                [$"EnterpriseIdps:{TestOidcIdpAlias}:SigningCertificatePem"] = TestOidcIdpCertificate.ExportCertificatePem(),
+
+                [$"SocialIdps:{TestSocialProvider}:AuthorizationEndpoint"] = TestSocialAuthorizationEndpoint,
+                [$"SocialIdps:{TestSocialProvider}:TokenEndpoint"] = TestSocialTokenEndpoint,
+                [$"SocialIdps:{TestSocialProvider}:ClientId"] = TestSocialClientId,
+                [$"SocialIdps:{TestSocialProvider}:ClientSecret"] = "test-client-secret",
+                [$"SocialIdps:{TestSocialProvider}:RedirectUri"] = TestSocialRedirectUri,
+                [$"SocialIdps:{TestSocialProvider}:Issuer"] = TestSocialIssuer,
+                [$"SocialIdps:{TestSocialProvider}:SigningCertificatePem"] = TestSocialIdpCertificate.ExportCertificatePem()
             });
         });
 
@@ -77,6 +121,11 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IMfaChallengeStore, InMemoryMfaChallengeStore>();
             services.AddSingleton<ITokenRevocationStore, InMemoryTokenRevocationStore>();
             services.AddSingleton<ISamlAssertionReplayStore, InMemorySamlAssertionReplayStore>();
+
+            services.AddHttpClient("oidc-token-exchange")
+                .ConfigurePrimaryHttpMessageHandler(() => new FakeOidcTokenEndpointHandler(
+                    new FakeOidcProviderRegistration(TestOidcTokenEndpoint, TestOidcIssuer, TestOidcClientId, TestOidcIdpCertificate),
+                    new FakeOidcProviderRegistration(TestSocialTokenEndpoint, TestSocialIssuer, TestSocialClientId, TestSocialIdpCertificate)));
 
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();

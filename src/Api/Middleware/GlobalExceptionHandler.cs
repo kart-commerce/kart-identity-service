@@ -46,6 +46,10 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 (StatusCodes.Status401Unauthorized, new Problem("invalid_saml_assertion", exception.Message)),
             SamlAssertionReplayException =>
                 (StatusCodes.Status409Conflict, new Problem("saml_assertion_replay", exception.Message)),
+            InvalidOidcTokenException =>
+                (StatusCodes.Status401Unauthorized, new Problem("invalid_oidc_token", exception.Message)),
+            SocialIdpNotConfiguredException =>
+                (StatusCodes.Status404NotFound, new Problem("idp_not_configured", exception.Message)),
             _ => (0, null)
         };
 

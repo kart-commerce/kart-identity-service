@@ -108,4 +108,42 @@ public sealed class User
         UpdatedAt = now;
         UpdatedBy = UserId.ToString();
     }
+
+    /// <summary>
+    /// api-contract.yaml PATCH /auth/profile — always the owning user themself
+    /// (bearer auth as that user is the only gate, requirement-spec.md §2/§4,
+    /// ADR-0006). Only the fields the caller supplied change; `null` means "leave
+    /// as-is," not "clear the value" (api-contract.yaml's `minProperties: 1` body).
+    /// </summary>
+    public void UpdateProfile(string? email, string? displayName, DateTimeOffset now)
+    {
+        if (email is not null)
+        {
+            Email = email;
+        }
+
+        if (displayName is not null)
+        {
+            DisplayName = displayName;
+        }
+
+        UpdatedAt = now;
+        UpdatedBy = UserId.ToString();
+    }
+
+    /// <summary>
+    /// Consumes `UserDataErased` (ADR-0016; ddd-model.md's `UserIdentity` aggregate
+    /// invariant) — tombstones the PII fields this aggregate owns. Idempotent by
+    /// construction (re-applying to an already-erased row is a no-op overwrite of
+    /// the same tombstone values), matching the at-least-once/idempotent-consumer
+    /// reliability bar every consumed/published event on this service is held to.
+    /// </summary>
+    public void Erase(DateTimeOffset now)
+    {
+        Email = null;
+        DisplayName = "[erased]";
+        PasswordHash = null;
+        UpdatedAt = now;
+        UpdatedBy = "system:user-service-erasure-consumer";
+    }
 }
