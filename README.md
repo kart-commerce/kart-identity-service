@@ -21,7 +21,8 @@ src/
 tests/
 ├── UnitTests/          # colocated by feature, mirrors Application/Features
 ├── IntegrationTests/
-└── ContractTests/      # validates live responses against api-contract.yaml
+└── ContractTests/      # validates live responses against contracts/api-contract.yaml
+contracts/              # synced copy of the approved api-contract.yaml (see contracts/README.md)
 ```
 
 ## Running locally
@@ -31,4 +32,19 @@ Requires the .NET 8 SDK.
 ```
 dotnet build
 dotnet test
+```
+
+The RS256 signing key is a secret and is never committed. Set it via
+environment variables before `dotnet run`:
+
+```
+export Jwt__SigningKey__Kid="<key-id>"
+export Jwt__SigningKey__PrivateKeyPem="$(cat /path/to/dev-private-key.pem)"
+dotnet run --project src/Api
+```
+
+Generate a throwaway local key with:
+
+```
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /path/to/dev-private-key.pem
 ```
