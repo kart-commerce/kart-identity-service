@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Kart.Identity.Application.Features.ConfirmMfaEnrollment;
 using Kart.Identity.Application.Features.EnrollMfa;
 using MediatR;
 
@@ -21,6 +22,20 @@ public static class MfaEndpoints
         .Produces<EnrollMfaResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        app.MapPost("/v1/auth/mfa/enroll/confirm", async (ConfirmMfaEnrollmentRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            await sender.Send(new ConfirmMfaEnrollmentCommand(userId, request.TotpCode), cancellationToken);
+            return Results.Ok();
+        })
+        .RequireAuthorization()
+        .WithName("ConfirmMfaEnrollment")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         return app;
     }
+
+    private sealed record ConfirmMfaEnrollmentRequest(string TotpCode);
 }

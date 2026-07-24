@@ -26,6 +26,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 (StatusCodes.Status423Locked, new Problem("account_locked", exception.Message)),
             LoginRateLimitExceededException =>
                 (StatusCodes.Status429TooManyRequests, new Problem("rate_limited", exception.Message)),
+            InvalidOrExpiredMfaCodeException =>
+                (StatusCodes.Status400BadRequest, new Problem("invalid_or_expired_code", exception.Message)),
             _ => (0, null)
         };
 

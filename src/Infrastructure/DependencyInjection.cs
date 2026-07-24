@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddSingleton<ITokenHasher, Sha256TokenHasher>();
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<ITotpProvisioningService, TotpProvisioningService>();
+        services.AddSingleton<ITotpCodeValidator, TotpCodeValidator>();
 
         services
             .AddOptions<MfaEncryptionOptions>()

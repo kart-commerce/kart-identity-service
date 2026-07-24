@@ -48,4 +48,19 @@ public sealed class MfaCredential
         UpdatedAt = now;
         UpdatedBy = UserId.ToString();
     }
+
+    /// <summary>
+    /// api-contract.yaml POST /auth/mfa/enroll/confirm — activates a still-pending,
+    /// not-yet-expired credential once its first TOTP code has been verified.
+    /// Callers must check <see cref="Status"/>/<see cref="PendingExpiresAt"/>
+    /// themselves before calling this; it does not re-validate them.
+    /// </summary>
+    public void Confirm(DateTimeOffset now)
+    {
+        Status = MfaCredentialStatus.Active;
+        ConfirmedAt = now;
+        PendingExpiresAt = null;
+        UpdatedAt = now;
+        UpdatedBy = UserId.ToString();
+    }
 }
