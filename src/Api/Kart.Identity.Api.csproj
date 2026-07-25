@@ -11,6 +11,32 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <!--
+    observability-standards.md: Serilog (structured JSON logs -> Loki via the
+    OTel Collector) + the OpenTelemetry SDK (traces -> Tempo, metrics -> Prometheus).
+    Kart.Shared.Observability (kart-conventions.md) doesn't exist as a published
+    package yet (kart-shared has no source), so this wires the same shape locally,
+    one DI/host registration, ready to be swapped for the shared package later.
+    EF Core/Redis instrumentation and the Prometheus exporter are still on their
+    OTel-contrib beta line (no stable release exists upstream as of this writing).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageReference Include="Serilog.Enrichers.Span" Version="3.1.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.17.0-beta.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.17.0-beta.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.17.0-beta.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Application\Kart.Identity.Application.csproj" />
     <ProjectReference Include="..\Infrastructure\Kart.Identity.Infrastructure.csproj" />

@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -132,7 +133,8 @@ public class EnterpriseSamlAssertionConsumerCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<EnterpriseSamlAssertionConsumerCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidSamlAssertionException>(
             () => handler.Handle(new EnterpriseSamlAssertionConsumerCommand("unknown-idp", "irrelevant-base64"), CancellationToken.None));
@@ -164,7 +166,8 @@ public class EnterpriseSamlAssertionConsumerCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<EnterpriseSamlAssertionConsumerCommandHandler>.Instance);
     }
 
     private static IAccessTokenGenerator StubAccessTokenGenerator()

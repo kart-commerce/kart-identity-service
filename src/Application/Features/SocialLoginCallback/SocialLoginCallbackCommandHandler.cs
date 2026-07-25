@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.SocialLoginCallback;
 
@@ -27,7 +28,8 @@ public sealed class SocialLoginCallbackCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<SocialLoginCallbackCommandHandler> logger)
     : IRequestHandler<SocialLoginCallbackCommand, SocialLoginCallbackResponse>
 {
     private static readonly string[] CustomerOnlyRoleClaims = [PlatformRoleClaims.ToClaimValue(PlatformRole.Customer)];
@@ -91,6 +93,13 @@ public sealed class SocialLoginCallbackCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = accessTokenGenerator.Generate(createdBy, CustomerOnlyRoleClaims, scopes: []);
+
+        logger.LogInformation(
+            "Social login completed for user {UserId} via provider {Provider}, session {SessionId} created (newUser={IsNewUser})",
+            user.UserId,
+            request.Provider,
+            session.SessionId,
+            isNewUser);
 
         return new SocialLoginCallbackResponse(
             AccessToken: accessToken.Token,

@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.ConfirmMfaEnrollment;
 
@@ -14,7 +15,8 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
     IIdentityDbContext dbContext,
     IMfaSecretCipher mfaSecretCipher,
     ITotpCodeValidator totpCodeValidator,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<ConfirmMfaEnrollmentCommandHandler> logger)
     : IRequestHandler<ConfirmMfaEnrollmentCommand>
 {
     public async Task Handle(ConfirmMfaEnrollmentCommand request, CancellationToken cancellationToken)
@@ -35,5 +37,7 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
 
         credential.Confirm(now);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("MFA enrollment confirmed for user {UserId}", request.UserId);
     }
 }

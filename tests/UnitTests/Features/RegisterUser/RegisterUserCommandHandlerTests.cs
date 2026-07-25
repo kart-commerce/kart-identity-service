@@ -5,6 +5,7 @@ using Kart.Identity.Application.Features.RegisterUser;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -107,7 +108,8 @@ public class RegisterUserCommandHandlerTests
             accessTokenGenerator,
             opaqueTokenGenerator,
             tokenHasher,
-            dateTimeProvider);
+            dateTimeProvider,
+            NullLogger<RegisterUserCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

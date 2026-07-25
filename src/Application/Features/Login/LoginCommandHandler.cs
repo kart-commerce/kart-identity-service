@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.Login;
 
@@ -24,7 +25,8 @@ public sealed class LoginCommandHandler(
     ITokenHasher tokenHasher,
     IDateTimeProvider dateTimeProvider,
     ILoginAttemptThrottle loginAttemptThrottle,
-    IMfaChallengeStore mfaChallengeStore)
+    IMfaChallengeStore mfaChallengeStore,
+    ILogger<LoginCommandHandler> logger)
     : IRequestHandler<LoginCommand, LoginResult>
 {
     public async Task<LoginResult> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -72,6 +74,7 @@ public sealed class LoginCommandHandler(
         if (mfaRequired)
         {
             var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId, roleClaims, cancellationToken);
+            logger.LogInformation("MFA challenge issued for user {UserId}", authenticatedUser.UserId);
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
 
@@ -96,6 +99,11 @@ public sealed class LoginCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
+
+        logger.LogInformation(
+            "User {UserId} logged in, session {SessionId} created",
+            authenticatedUser.UserId,
+            session.SessionId);
 
         return new AuthenticatedLoginResult(
             AccessToken: accessToken.Token,

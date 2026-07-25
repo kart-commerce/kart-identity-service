@@ -5,6 +5,7 @@ using Kart.Identity.Application.Features.VerifyMfa;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -138,7 +139,8 @@ public class VerifyMfaCommandHandlerTests
             accessTokenGenerator,
             opaqueTokenGenerator,
             tokenHasher,
-            dateTimeProvider);
+            dateTimeProvider,
+            NullLogger<VerifyMfaCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

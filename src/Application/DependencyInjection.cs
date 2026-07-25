@@ -14,6 +14,10 @@ public static class DependencyInjection
         services.AddMediatR(cfg =>
         {
             cfg.RegisterServicesFromAssembly(assembly);
+            // Registration order is pipeline order (outermost first) — Logging wraps
+            // Validation so a rejected/invalid request is still observed, not just a
+            // handler's own success path.
+            cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehaviour<,>));
         });
         services.AddValidatorsFromAssembly(assembly);

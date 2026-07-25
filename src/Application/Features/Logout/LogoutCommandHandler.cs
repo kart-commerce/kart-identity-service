@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.Logout;
 
@@ -16,12 +17,14 @@ public sealed class LogoutCommandHandler(
     IIdentityDbContext dbContext,
     ITokenRevocationStore revocationStore,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<LogoutCommandHandler> logger)
     : IRequestHandler<LogoutCommand>
 {
     public async Task Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
         var now = dateTimeProvider.UtcNow;
+        logger.LogInformation("User {UserId} logging out", request.UserId);
         var ttl = request.AccessTokenExpiresAt - now;
         if (ttl > TimeSpan.Zero)
         {

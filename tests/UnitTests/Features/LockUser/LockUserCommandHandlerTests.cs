@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -88,7 +89,7 @@ public class LockUserCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new LockUserCommandHandler(dbContext, revocationStore, dateTimeProvider);
+        return new LockUserCommandHandler(dbContext, revocationStore, dateTimeProvider, NullLogger<LockUserCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

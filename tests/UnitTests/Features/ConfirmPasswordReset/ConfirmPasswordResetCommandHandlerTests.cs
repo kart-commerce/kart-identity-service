@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -101,7 +102,7 @@ public class ConfirmPasswordResetCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new ConfirmPasswordResetCommandHandler(dbContext, tokenHasher, passwordHasher, revocationStore, dateTimeProvider);
+        return new ConfirmPasswordResetCommandHandler(dbContext, tokenHasher, passwordHasher, revocationStore, dateTimeProvider, NullLogger<ConfirmPasswordResetCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext(DateTimeOffset? expiresAt = null)

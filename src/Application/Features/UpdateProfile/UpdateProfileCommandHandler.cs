@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.UpdateProfile;
 
@@ -19,7 +20,8 @@ namespace Kart.Identity.Application.Features.UpdateProfile;
 /// </summary>
 public sealed class UpdateProfileCommandHandler(
     IIdentityDbContext dbContext,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<UpdateProfileCommandHandler> logger)
     : IRequestHandler<UpdateProfileCommand, UpdateProfileResponse>
 {
     public async Task<UpdateProfileResponse> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -58,6 +60,10 @@ public sealed class UpdateProfileCommandHandler(
             // this write (same race RegisterUserCommandHandler already closes).
             throw new EmailAlreadyRegisteredException(email ?? string.Empty);
         }
+
+        // Never the email/display name themselves — those are the PII this
+        // update mutates, not something to echo into a log line.
+        logger.LogInformation("Profile updated for user {UserId}", user.UserId);
 
         return new UpdateProfileResponse(user.Email, user.DisplayName, now);
     }
