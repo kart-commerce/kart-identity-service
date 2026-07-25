@@ -35,4 +35,11 @@ public sealed class OutboxEvent
             CreatedBy = createdBy,
             UpdatedAt = now
         };
+
+    /// <summary>Called by the outbox-relay poller (OutboxRelayHostedService) once a row's been published.</summary>
+    public void MarkPublished(DateTimeOffset publishedAt)
+    {
+        PublishedAt = publishedAt;
+        UpdatedAt = publishedAt;
+    }
 }

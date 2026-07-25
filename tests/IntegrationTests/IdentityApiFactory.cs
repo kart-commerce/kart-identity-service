@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Infrastructure.Messaging;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
 
 namespace Kart.Identity.IntegrationTests;
@@ -137,10 +139,27 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
                     new FakeOidcProviderRegistration(TestOidcTokenEndpoint, TestOidcIssuer, TestOidcClientId, TestOidcIdpCertificate),
                     new FakeOidcProviderRegistration(TestSocialTokenEndpoint, TestSocialIssuer, TestSocialClientId, TestSocialIdpCertificate)));
 
+            // No real RabbitMQ in this test environment — these tests assert HTTP endpoint
+            // behavior, not event publication/consumption (covered separately by the dedicated
+            // messaging integration tests, which point these same hosted services at a real
+            // Testcontainers RabbitMQ instance instead of removing them).
+            RemoveHostedService<OutboxRelayHostedService>(services);
+            RemoveHostedService<UserDataErasedConsumerHostedService>(services);
+
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();
             scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.EnsureCreated();
         });
+    }
+
+    private static void RemoveHostedService<T>(IServiceCollection services)
+        where T : class, IHostedService
+    {
+        var descriptor = services.FirstOrDefault(d => d.ImplementationType == typeof(T));
+        if (descriptor is not null)
+        {
+            services.Remove(descriptor);
+        }
     }
 
     protected override void Dispose(bool disposing)
