@@ -133,6 +133,7 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
             // shape, not event publication/consumption (covered separately by the dedicated
             // messaging integration tests, which point these same hosted services at a real
             // Testcontainers RabbitMQ instance instead of removing them).
+            RemoveHostedService<RabbitMqTopologyStartupHostedService>(services);
             RemoveHostedService<OutboxRelayHostedService>(services);
             RemoveHostedService<UserDataErasedConsumerHostedService>(services);
 

@@ -1,22 +1,19 @@
 namespace Kart.Identity.Infrastructure.Messaging;
 
 /// <summary>
-/// Binds the "RabbitMq" configuration section — message-bus-manifest.json's topology names.
+/// Binds the "RabbitMq" configuration section. Every exchange/queue/binding/dead-letter/
+/// retry-tier name lives in contracts/message-bus-manifest.json (loaded via
+/// <see cref="MessageBusManifestLoader"/>), not here — this only holds the connection
+/// details the manifest itself doesn't describe.
 /// </summary>
 public sealed class RabbitMqOptions
 {
     public string HostName { get; set; } = "localhost";
 
-    /// <summary>message-bus-manifest.json: `identity.exchange`, topic, durable — this service's own published events.</summary>
-    public string Exchange { get; set; } = "identity.exchange";
-
-    /// <summary>message-bus-manifest.json: `identity.dlx`, topic, durable — dead-letters for this service's own consumer queue.</summary>
-    public string DeadLetterExchange { get; set; } = "identity.dlx";
-
     /// <summary>
-    /// message-bus-manifest.json: Identity does not own `user.exchange` (User Service does) — it only
-    /// binds its own `identity.user-events.queue` to it. Declared idempotently by the consumer so the
-    /// bind never fails if this service starts before User Service has created it.
+    /// Path to this service's message-bus manifest. Relative paths resolve against
+    /// AppContext.BaseDirectory (the manifest is copied there at build time from
+    /// contracts/message-bus-manifest.json).
     /// </summary>
-    public string UserExchange { get; set; } = "user.exchange";
+    public string ManifestPath { get; set; } = "message-bus-manifest.json";
 }

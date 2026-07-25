@@ -42,4 +42,14 @@
     <ProjectReference Include="..\Infrastructure\Kart.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    contracts/message-bus-manifest.json is this service's single source of truth for its
+    RabbitMQ topology — copied here so RabbitMqOptions.ManifestPath (resolved against
+    AppContext.BaseDirectory) finds it at runtime without a "../../contracts" relative
+    path that would break once this service is deployed as its own container image.
+  -->
+  <ItemGroup>
+    <Content Include="..\..\contracts\message-bus-manifest.json" Link="message-bus-manifest.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
