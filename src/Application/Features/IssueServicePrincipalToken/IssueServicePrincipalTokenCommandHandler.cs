@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.IssueServicePrincipalToken;
 
@@ -16,7 +17,8 @@ namespace Kart.Identity.Application.Features.IssueServicePrincipalToken;
 public sealed class IssueServicePrincipalTokenCommandHandler(
     IIdentityDbContext dbContext,
     IPasswordHasher passwordHasher,
-    IAccessTokenGenerator accessTokenGenerator)
+    IAccessTokenGenerator accessTokenGenerator,
+    ILogger<IssueServicePrincipalTokenCommandHandler> logger)
     : IRequestHandler<IssueServicePrincipalTokenCommand, IssueServicePrincipalTokenResponse>
 {
     public async Task<IssueServicePrincipalTokenResponse> Handle(IssueServicePrincipalTokenCommand request, CancellationToken cancellationToken)
@@ -44,6 +46,11 @@ public sealed class IssueServicePrincipalTokenCommandHandler(
 
         var roleClaim = PlatformRoleClaims.ToClaimValue(principal.Role);
         var accessToken = accessTokenGenerator.Generate(principal.ClientId, [roleClaim], scopes);
+
+        logger.LogInformation(
+            "Service principal token issued for client {ClientId} with role {Role}",
+            principal.ClientId,
+            principal.Role);
 
         return new IssueServicePrincipalTokenResponse(accessToken.Token, "Bearer", accessToken.ExpiresInSeconds, scopes);
     }

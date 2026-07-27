@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -82,7 +83,7 @@ public class UpdateProfileCommandHandlerTests
     {
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
-        return new UpdateProfileCommandHandler(dbContext, dateTimeProvider);
+        return new UpdateProfileCommandHandler(dbContext, dateTimeProvider, NullLogger<UpdateProfileCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

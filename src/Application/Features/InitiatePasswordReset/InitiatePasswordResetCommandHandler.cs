@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.InitiatePasswordReset;
 
@@ -22,7 +23,8 @@ public sealed class InitiatePasswordResetCommandHandler(
     IIdentityDbContext dbContext,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<InitiatePasswordResetCommandHandler> logger)
     : IRequestHandler<InitiatePasswordResetCommand>
 {
     public async Task Handle(InitiatePasswordResetCommand request, CancellationToken cancellationToken)
@@ -41,5 +43,7 @@ public sealed class InitiatePasswordResetCommandHandler(
 
         dbContext.PasswordResetTokens.Add(resetToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Password reset initiated for user {UserId}", user.UserId);
     }
 }

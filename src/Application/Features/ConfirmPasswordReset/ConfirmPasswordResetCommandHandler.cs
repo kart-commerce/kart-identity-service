@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.ConfirmPasswordReset;
 
@@ -20,7 +21,8 @@ public sealed class ConfirmPasswordResetCommandHandler(
     ITokenHasher tokenHasher,
     IPasswordHasher passwordHasher,
     ITokenRevocationStore revocationStore,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<ConfirmPasswordResetCommandHandler> logger)
     : IRequestHandler<ConfirmPasswordResetCommand>
 {
     public async Task Handle(ConfirmPasswordResetCommand request, CancellationToken cancellationToken)
@@ -61,5 +63,10 @@ public sealed class ConfirmPasswordResetCommandHandler(
         }
 
         await revocationStore.RevokeAllForUserAsync(user.UserId, now, cancellationToken);
+
+        logger.LogInformation(
+            "Password reset completed for user {UserId}, {SessionCount} sessions revoked",
+            user.UserId,
+            liveSessions.Count);
     }
 }

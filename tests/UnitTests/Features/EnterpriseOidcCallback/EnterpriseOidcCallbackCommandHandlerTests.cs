@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -122,7 +123,8 @@ public class EnterpriseOidcCallbackCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<EnterpriseOidcCallbackCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOidcTokenException>(
             () => handler.Handle(new EnterpriseOidcCallbackCommand("unknown-idp", "auth-code", "state"), CancellationToken.None));
@@ -143,7 +145,8 @@ public class EnterpriseOidcCallbackCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<EnterpriseOidcCallbackCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOidcTokenException>(
             () => handler.Handle(new EnterpriseOidcCallbackCommand(IdpAlias, "auth-code", "state"), CancellationToken.None));
@@ -167,7 +170,8 @@ public class EnterpriseOidcCallbackCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<EnterpriseOidcCallbackCommandHandler>.Instance);
     }
 
     private static IAccessTokenGenerator StubAccessTokenGenerator()

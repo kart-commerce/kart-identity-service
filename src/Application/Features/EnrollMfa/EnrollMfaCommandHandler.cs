@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.EnrollMfa;
 
@@ -15,7 +16,8 @@ public sealed class EnrollMfaCommandHandler(
     IIdentityDbContext dbContext,
     ITotpProvisioningService totpProvisioningService,
     IMfaSecretCipher mfaSecretCipher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<EnrollMfaCommandHandler> logger)
     : IRequestHandler<EnrollMfaCommand, EnrollMfaResponse>
 {
     /// <summary>An unconfirmed enrollment attempt expires and must be restarted — an explicit engineering default, since neither requirement-spec.md nor api-contract.yaml name a concrete window.</summary>
@@ -41,6 +43,8 @@ public sealed class EnrollMfaCommandHandler(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("MFA enrollment started for user {UserId}", request.UserId);
 
         return new EnrollMfaResponse(enrollment.ProvisioningUri, credential.PendingExpiresAt!.Value);
     }

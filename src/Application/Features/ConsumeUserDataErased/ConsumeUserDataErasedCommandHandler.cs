@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.ConsumeUserDataErased;
 
@@ -22,7 +23,8 @@ namespace Kart.Identity.Application.Features.ConsumeUserDataErased;
 public sealed class ConsumeUserDataErasedCommandHandler(
     IIdentityDbContext dbContext,
     ITokenRevocationStore revocationStore,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<ConsumeUserDataErasedCommandHandler> logger)
     : IRequestHandler<ConsumeUserDataErasedCommand>
 {
     private const string ErasedBy = "system:user-service-erasure-consumer";
@@ -32,6 +34,9 @@ public sealed class ConsumeUserDataErasedCommandHandler(
         var user = await dbContext.Users.SingleOrDefaultAsync(u => u.UserId == request.UserId, cancellationToken);
         if (user is null)
         {
+            logger.LogInformation(
+                "UserDataErased received for user {UserId} with no matching account (already erased or never existed) — no-op",
+                request.UserId);
             return;
         }
 
@@ -69,5 +74,10 @@ public sealed class ConsumeUserDataErasedCommandHandler(
         // honored again (edge-cases.md, "UserDataErased Arrives While the User
         // Holds Active Sessions"), not just its future login attempts.
         await revocationStore.RevokeAllForUserAsync(request.UserId, now, cancellationToken);
+
+        logger.LogInformation(
+            "User data erased for user {UserId}, {SessionCount} sessions revoked",
+            request.UserId,
+            liveSessions.Count);
     }
 }

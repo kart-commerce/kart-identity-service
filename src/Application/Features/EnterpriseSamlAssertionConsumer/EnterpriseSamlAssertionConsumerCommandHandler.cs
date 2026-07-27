@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.EnterpriseSamlAssertionConsumer;
 
@@ -26,7 +27,8 @@ public sealed class EnterpriseSamlAssertionConsumerCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<EnterpriseSamlAssertionConsumerCommandHandler> logger)
     : IRequestHandler<EnterpriseSamlAssertionConsumerCommand, EnterpriseSamlAssertionConsumerResponse>
 {
     public async Task<EnterpriseSamlAssertionConsumerResponse> Handle(
@@ -44,6 +46,7 @@ public sealed class EnterpriseSamlAssertionConsumerCommandHandler(
         var consumed = await replayStore.TryConsumeAsync(assertion.AssertionId, replayTtl, cancellationToken);
         if (!consumed)
         {
+            logger.LogWarning("SAML assertion replay detected for idp {IdpAlias}", request.IdpAlias);
             throw new SamlAssertionReplayException();
         }
 
@@ -106,6 +109,13 @@ public sealed class EnterpriseSamlAssertionConsumerCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = accessTokenGenerator.Generate(createdBy, roleClaims, scopes: []);
+
+        logger.LogInformation(
+            "Enterprise SAML login completed for user {UserId} via idp {IdpAlias}, session {SessionId} created (newUser={IsNewUser})",
+            user.UserId,
+            request.IdpAlias,
+            session.SessionId,
+            isNewUser);
 
         return new EnterpriseSamlAssertionConsumerResponse(
             AccessToken: accessToken.Token,

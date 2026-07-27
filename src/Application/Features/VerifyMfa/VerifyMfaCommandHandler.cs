@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.VerifyMfa;
 
@@ -24,7 +25,8 @@ public sealed class VerifyMfaCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<VerifyMfaCommandHandler> logger)
     : IRequestHandler<VerifyMfaCommand, VerifyMfaResponse>
 {
     public async Task<VerifyMfaResponse> Handle(VerifyMfaCommand request, CancellationToken cancellationToken)
@@ -68,6 +70,11 @@ public sealed class VerifyMfaCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = accessTokenGenerator.Generate(createdBy, challenge.Roles, scopes: []);
+
+        logger.LogInformation(
+            "MFA verified for user {UserId}, session {SessionId} created",
+            challenge.UserId,
+            session.SessionId);
 
         return new VerifyMfaResponse(
             AccessToken: accessToken.Token,

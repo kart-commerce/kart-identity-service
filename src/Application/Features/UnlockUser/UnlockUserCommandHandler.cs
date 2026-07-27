@@ -1,6 +1,7 @@
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.UnlockUser;
 
@@ -11,7 +12,10 @@ namespace Kart.Identity.Application.Features.UnlockUser;
 /// future login attempts are re-permitted, exactly as ordinary logout/reuse
 /// revocation is never implicitly undone either.
 /// </summary>
-public sealed class UnlockUserCommandHandler(IIdentityDbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class UnlockUserCommandHandler(
+    IIdentityDbContext dbContext,
+    IDateTimeProvider dateTimeProvider,
+    ILogger<UnlockUserCommandHandler> logger)
     : IRequestHandler<UnlockUserCommand>
 {
     public async Task Handle(UnlockUserCommand request, CancellationToken cancellationToken)
@@ -29,5 +33,7 @@ public sealed class UnlockUserCommandHandler(IIdentityDbContext dbContext, IDate
 
         user.Unlock(dateTimeProvider.UtcNow, request.UnlockedBy);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("User {UserId} unlocked by {UnlockedBy}", userId, request.UnlockedBy);
     }
 }

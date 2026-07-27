@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -71,7 +72,7 @@ public class EnrollMfaCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new EnrollMfaCommandHandler(dbContext, totpProvisioningService, mfaSecretCipher, dateTimeProvider);
+        return new EnrollMfaCommandHandler(dbContext, totpProvisioningService, mfaSecretCipher, dateTimeProvider, NullLogger<EnrollMfaCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

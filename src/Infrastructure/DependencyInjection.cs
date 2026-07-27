@@ -1,12 +1,15 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Federation;
+using Kart.Identity.Infrastructure.Messaging;
 using Kart.Identity.Infrastructure.Persistence;
 using Kart.Identity.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using RabbitMQ.Client;
 using StackExchange.Redis;
 
 namespace Kart.Identity.Infrastructure;
@@ -93,6 +96,32 @@ public static class DependencyInjection
         services.AddHttpClient("oidc-token-exchange");
         services.AddSingleton<IOidcAuthorizationRequestBuilder, OidcAuthorizationRequestBuilder>();
         services.AddSingleton<IOidcTokenExchangeClient, OidcTokenExchangeClient>();
+
+        // contracts/message-bus-manifest.json is the single source of truth for this
+        // service's entire RabbitMQ topology — every exchange, queue, binding, dead-letter
+        // and retry-tier name. Nothing messaging-related is hardcoded in C#: the manifest is
+        // loaded once here and shared as a singleton; RabbitMqTopologyProvisioner scans it to
+        // declare the topology. IConnectionFactory only builds config, it does not connect
+        // eagerly, so registering it here is safe even if RabbitMQ is unreachable at
+        // startup — RabbitMqTopologyStartupHostedService, OutboxRelayHostedService and
+        // UserDataErasedConsumerHostedService each own their own retrying connection.
+        services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMq"));
+        services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+            var manifestPath = Path.IsPathRooted(options.ManifestPath)
+                ? options.ManifestPath
+                : Path.Combine(AppContext.BaseDirectory, options.ManifestPath);
+            return MessageBusManifestLoader.Load(manifestPath);
+        });
+        services.AddSingleton<IConnectionFactory>(_ => new ConnectionFactory
+        {
+            HostName = configuration["RabbitMq:HostName"] ?? "localhost",
+            DispatchConsumersAsync = true,
+        });
+        services.AddHostedService<RabbitMqTopologyStartupHostedService>();
+        services.AddHostedService<OutboxRelayHostedService>();
+        services.AddHostedService<UserDataErasedConsumerHostedService>();
 
         return services;
     }

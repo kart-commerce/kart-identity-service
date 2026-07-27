@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.EnterpriseOidcCallback;
 
@@ -27,7 +28,8 @@ public sealed class EnterpriseOidcCallbackCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<EnterpriseOidcCallbackCommandHandler> logger)
     : IRequestHandler<EnterpriseOidcCallbackCommand, EnterpriseOidcCallbackResponse>
 {
     public async Task<EnterpriseOidcCallbackResponse> Handle(
@@ -97,6 +99,13 @@ public sealed class EnterpriseOidcCallbackCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = accessTokenGenerator.Generate(createdBy, roleClaims, scopes: []);
+
+        logger.LogInformation(
+            "Enterprise OIDC login completed for user {UserId} via idp {IdpAlias}, session {SessionId} created (newUser={IsNewUser})",
+            user.UserId,
+            request.IdpAlias,
+            session.SessionId,
+            isNewUser);
 
         return new EnterpriseOidcCallbackResponse(
             AccessToken: accessToken.Token,

@@ -4,6 +4,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -101,7 +102,7 @@ public class LogoutCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new LogoutCommandHandler(dbContext, revocationStore, tokenHasher, dateTimeProvider);
+        return new LogoutCommandHandler(dbContext, revocationStore, tokenHasher, dateTimeProvider, NullLogger<LogoutCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

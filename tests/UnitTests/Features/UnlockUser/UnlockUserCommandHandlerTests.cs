@@ -4,6 +4,7 @@ using Kart.Identity.Application.Features.UnlockUser;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -56,7 +57,7 @@ public class UnlockUserCommandHandlerTests
     {
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
-        return new UnlockUserCommandHandler(dbContext, dateTimeProvider);
+        return new UnlockUserCommandHandler(dbContext, dateTimeProvider, NullLogger<UnlockUserCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

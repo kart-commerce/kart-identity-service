@@ -3,6 +3,7 @@ using Kart.Identity.Application.Features.InitiatePasswordReset;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -54,7 +55,7 @@ public class InitiatePasswordResetCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider);
+        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider, NullLogger<InitiatePasswordResetCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

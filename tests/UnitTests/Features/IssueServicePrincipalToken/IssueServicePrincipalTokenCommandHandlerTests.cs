@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -104,7 +105,7 @@ public class IssueServicePrincipalTokenCommandHandlerTests
             .Generate(Arg.Any<string>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<IReadOnlyCollection<string>>())
             .Returns(new AccessToken("minted-access-token", 900));
 
-        return new IssueServicePrincipalTokenCommandHandler(dbContext, passwordHasher, accessTokenGenerator);
+        return new IssueServicePrincipalTokenCommandHandler(dbContext, passwordHasher, accessTokenGenerator, NullLogger<IssueServicePrincipalTokenCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()
