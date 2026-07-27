@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.RegisterUser;
 
@@ -21,7 +22,8 @@ public sealed class RegisterUserCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<RegisterUserCommandHandler> logger)
     : IRequestHandler<RegisterUserCommand, RegisterUserResponse>
 {
     public async Task<RegisterUserResponse> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
@@ -84,6 +86,11 @@ public sealed class RegisterUserCommandHandler(
             // a freshly generated Guid.
             throw new EmailAlreadyRegisteredException(email);
         }
+
+        logger.LogInformation(
+            "User {UserId} registered, session {SessionId} created",
+            user.UserId,
+            session.SessionId);
 
         return new RegisterUserResponse(
             AccessToken: accessToken.Token,

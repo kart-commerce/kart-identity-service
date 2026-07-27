@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -104,7 +105,8 @@ public class SocialLoginCallbackCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<SocialLoginCallbackCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOidcTokenException>(
             () => handler.Handle(new SocialLoginCallbackCommand("unknown-provider", "auth-code", "state"), CancellationToken.None));
@@ -127,7 +129,8 @@ public class SocialLoginCallbackCommandHandlerTests
             StubAccessTokenGenerator(),
             StubOpaqueTokenGenerator(),
             StubTokenHasher(),
-            StubDateTimeProvider());
+            StubDateTimeProvider(),
+            NullLogger<SocialLoginCallbackCommandHandler>.Instance);
     }
 
     private static IAccessTokenGenerator StubAccessTokenGenerator()

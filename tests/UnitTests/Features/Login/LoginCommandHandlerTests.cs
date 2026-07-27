@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -181,7 +182,8 @@ public class LoginCommandHandlerTests
             tokenHasher,
             dateTimeProvider,
             loginAttemptThrottle,
-            mfaChallengeStore);
+            mfaChallengeStore,
+            NullLogger<LoginCommandHandler>.Instance);
     }
 
     private static IPasswordHasher CreateDefaultPasswordHasher()

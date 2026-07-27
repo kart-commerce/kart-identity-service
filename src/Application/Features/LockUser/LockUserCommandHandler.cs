@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.LockUser;
 
@@ -18,7 +19,8 @@ namespace Kart.Identity.Application.Features.LockUser;
 public sealed class LockUserCommandHandler(
     IIdentityDbContext dbContext,
     ITokenRevocationStore revocationStore,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<LockUserCommandHandler> logger)
     : IRequestHandler<LockUserCommand>
 {
     public async Task Handle(LockUserCommand request, CancellationToken cancellationToken)
@@ -47,5 +49,11 @@ public sealed class LockUserCommandHandler(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await revocationStore.RevokeAllForUserAsync(userId, now, cancellationToken);
+
+        logger.LogInformation(
+            "User {UserId} locked by {LockedBy}, {SessionCount} sessions revoked",
+            userId,
+            request.LockedBy,
+            liveSessions.Count);
     }
 }

@@ -6,6 +6,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -172,7 +173,7 @@ public class RotateRefreshTokenCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new RotateRefreshTokenCommandHandler(dbContext, accessTokenGenerator, opaqueTokenGenerator, tokenHasher, dateTimeProvider);
+        return new RotateRefreshTokenCommandHandler(dbContext, accessTokenGenerator, opaqueTokenGenerator, tokenHasher, dateTimeProvider, NullLogger<RotateRefreshTokenCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext(string? sharedName = null)

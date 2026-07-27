@@ -5,6 +5,7 @@ using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Features.RotateRefreshToken;
 
@@ -22,7 +23,8 @@ public sealed class RotateRefreshTokenCommandHandler(
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ILogger<RotateRefreshTokenCommandHandler> logger)
     : IRequestHandler<RotateRefreshTokenCommand, RotateRefreshTokenResponse>
 {
     public async Task<RotateRefreshTokenResponse> Handle(RotateRefreshTokenCommand request, CancellationToken cancellationToken)
@@ -44,6 +46,11 @@ public sealed class RotateRefreshTokenCommandHandler(
                 session.Revoke(SessionRevocationReason.ReuseDetected, now, "system:identity-reuse-detection");
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
+
+            // A likely token-theft signal (edge-cases.md, "Refresh Token Replay After
+            // Rotation") — worth its own Warning with the session id, since the
+            // generic boundary log (GlobalExceptionHandler) doesn't carry one.
+            logger.LogWarning("Refresh token reuse detected for session {SessionId}, session revoked", session.SessionId);
 
             throw new RefreshTokenReuseDetectedException();
         }
@@ -81,6 +88,8 @@ public sealed class RotateRefreshTokenCommandHandler(
             .ToListAsync(cancellationToken);
         var roleClaims = roles.Select(PlatformRoleClaims.ToClaimValue).ToArray();
         var accessToken = accessTokenGenerator.Generate(updatedBy, roleClaims, scopes: []);
+
+        logger.LogInformation("Refresh token rotated for session {SessionId}", session.SessionId);
 
         return new RotateRefreshTokenResponse(
             AccessToken: accessToken.Token,

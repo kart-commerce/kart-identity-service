@@ -9,8 +9,12 @@ namespace Kart.Identity.Api.Middleware;
 /// Maps known Application-layer exceptions to api-contract.yaml's `Problem` shape.
 /// Any exception not recognized here is left unhandled (returns false), falling
 /// through to ASP.NET Core's own problem-details/developer-exception-page handling.
+/// This is also the single place every exception reaching an HTTP request's boundary is
+/// logged (observability-standards.md: Warning for a handled/expected business
+/// exception, Error for anything unrecognized) — deliberately not duplicated inside
+/// <c>LoggingBehaviour</c>, which every one of these requests also passes through.
 /// </summary>
-public sealed class GlobalExceptionHandler : IExceptionHandler
+public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
@@ -55,8 +59,25 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
         if (problem is null)
         {
+            // Not one of the recognized/expected exception types above — a genuine
+            // unhandled failure surfacing at the API boundary.
+            logger.LogError(
+                exception,
+                "Unhandled exception for {Method} {Path}",
+                httpContext.Request.Method,
+                httpContext.Request.Path);
             return false;
         }
+
+        // A recognized business exception, already mapped to a client-safe Problem
+        // above — a handled degraded path, not a bug, hence Warning rather than Error.
+        logger.LogWarning(
+            exception,
+            "Request rejected with {ProblemCode} ({StatusCode}) for {Method} {Path}",
+            problem.Code,
+            statusCode,
+            httpContext.Request.Method,
+            httpContext.Request.Path);
 
         httpContext.Response.StatusCode = statusCode;
         await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);

@@ -1,31 +1,42 @@
 {
   "service": "kart-identity-service",
-  "exchange": { "name": "identity.exchange", "type": "topic", "durable": true },
-  "dlx": { "name": "identity.dlx", "type": "topic", "durable": true },
+  "exchanges": [
+    { "name": "identity.exchange", "type": "topic", "durable": true },
+    { "name": "identity.dlx", "type": "topic", "durable": true }
+  ],
+  "externalExchanges": [
+    { "name": "user.exchange", "type": "topic", "durable": true }
+  ],
+  "publishedEvents": [
+    { "eventType": "UserRegistered", "exchange": "identity.exchange", "routingKey": "identity.user.registered" },
+    { "eventType": "SessionCreated", "exchange": "identity.exchange", "routingKey": "identity.session.created" },
+    { "eventType": "UserAccountUpdated", "exchange": "identity.exchange", "routingKey": "identity.user-account.updated" }
+  ],
   "queues": [
     {
       "name": "identity.user-events.queue",
+      "durable": true,
       "bindings": [
         { "exchange": "user.exchange", "routingKey": "user.data-erased" }
       ],
-      "arguments": {
-        "x-dead-letter-exchange": "identity.dlx",
-        "x-dead-letter-routing-key": "identity.user-events.dlq"
+      "deadLetter": {
+        "exchange": "identity.dlx",
+        "routingKey": "identity.user-events.dlq"
+      },
+      "retryLadder": {
+        "requeueTo": "identity.user-events.queue",
+        "tiers": [
+          { "name": "identity.user-events.retry.30s", "ttlMs": 30000 },
+          { "name": "identity.user-events.retry.60s", "ttlMs": 60000 },
+          { "name": "identity.user-events.retry.120s", "ttlMs": 120000 },
+          { "name": "identity.user-events.retry.240s", "ttlMs": 240000 },
+          { "name": "identity.user-events.retry.480s", "ttlMs": 480000 }
+        ]
       }
     }
   ],
-  "dlqs": [
-    { "name": "identity.user-events.dlq", "bindings": [{ "exchange": "identity.dlx", "routingKey": "identity.user-events.dlq" }] }
+  "deadLetterQueues": [
+    { "name": "identity.user-events.dlq", "exchange": "identity.dlx", "routingKey": "identity.user-events.dlq" }
   ],
-  "retry": [
-    {
-      "name": "identity.user-events.retry.30s",
-      "arguments": {
-        "x-message-ttl": 30000,
-        "x-dead-letter-exchange": "",
-        "x-dead-letter-routing-key": "identity.user-events.queue"
-      }
-    }
-  ],
-  "_comment": "Identity publishes UserRegistered/SessionCreated/UserAccountUpdated onto identity.exchange (own topology, not shown — User/Notification/Analytics bind their own queues to it)."
+  "_comment": "Source of truth for this service's entire RabbitMQ topology (event-contract.md, ADR-0016's 5-tier UserDataErased retry ladder). Nothing here is hardcoded in C# — RabbitMqTopologyProvisioner scans this file and declares every exchange/queue/binding/DLQ/retry-tier at startup. Identity does not own user.exchange (User Service does); it only binds a queue to it."
 }

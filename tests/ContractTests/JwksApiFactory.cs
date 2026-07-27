@@ -1,7 +1,10 @@
 using System.Security.Cryptography;
+using Kart.Identity.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Kart.Identity.ContractTests;
 
@@ -26,5 +29,23 @@ public sealed class JwksApiFactory : WebApplicationFactory<Program>
                 ["Jwt:SigningKey:PrivateKeyPem"] = testPrivateKeyPem
             });
         });
+
+        // No real RabbitMQ in this test environment — the JWKS endpoint doesn't touch
+        // messaging at all (same reasoning as IdentityApiFactory's own removal).
+        builder.ConfigureServices(services =>
+        {
+            RemoveHostedService<OutboxRelayHostedService>(services);
+            RemoveHostedService<UserDataErasedConsumerHostedService>(services);
+        });
+    }
+
+    private static void RemoveHostedService<T>(IServiceCollection services)
+        where T : class, IHostedService
+    {
+        var descriptor = services.FirstOrDefault(d => d.ImplementationType == typeof(T));
+        if (descriptor is not null)
+        {
+            services.Remove(descriptor);
+        }
     }
 }
