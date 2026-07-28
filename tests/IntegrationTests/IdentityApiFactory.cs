@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Messaging;
 using Kart.Identity.Infrastructure.Persistence;
+using Kart.Shared.Messaging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;

@@ -1,5 +1,6 @@
 using System.Text;
 using Kart.Identity.Infrastructure.Persistence;
+using Kart.Shared.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
