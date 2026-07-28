@@ -7,6 +7,15 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var globalConfigPath = builder.Configuration["GlobalConfig:Path"];
+if (string.IsNullOrWhiteSpace(globalConfigPath))
+{
+    throw new InvalidOperationException(
+        "GlobalConfig:Path is not set — the app cannot locate its secrets file.");
+}
+
+builder.Configuration.AddJsonFile(globalConfigPath, optional: false, reloadOnChange: true);
+
 builder.AddObservability();
 
 builder.Services.AddEndpointsApiExplorer();

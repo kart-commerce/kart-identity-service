@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Secrets file referenced by GlobalConfig:Path — must never live inside the repo,
+# but ignored here too as a defense-in-depth backstop.
+globalconfig.json
+
 # User-specific files
 *.rsuser
 *.suo
