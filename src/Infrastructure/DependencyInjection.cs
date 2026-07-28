@@ -105,7 +105,13 @@ public static class DependencyInjection
         // eagerly, so registering it here is safe even if RabbitMQ is unreachable at
         // startup — RabbitMqTopologyStartupHostedService, OutboxRelayHostedService and
         // UserDataErasedConsumerHostedService each own their own retrying connection.
-        services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMq"));
+        services
+            .AddOptions<RabbitMqOptions>()
+            .Bind(configuration.GetSection(RabbitMqOptions.SectionName))
+            .Validate(
+                o => string.IsNullOrEmpty(o.UserName) == string.IsNullOrEmpty(o.Password),
+                "RabbitMq:UserName and RabbitMq:Password must either both be set or both be left unset.")
+            .ValidateOnStart();
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
@@ -114,10 +120,21 @@ public static class DependencyInjection
                 : Path.Combine(AppContext.BaseDirectory, options.ManifestPath);
             return MessageBusManifestLoader.Load(manifestPath);
         });
-        services.AddSingleton<IConnectionFactory>(_ => new ConnectionFactory
+        services.AddSingleton<IConnectionFactory>(sp =>
         {
-            HostName = configuration["RabbitMq:HostName"] ?? "localhost",
-            DispatchConsumersAsync = true,
+            var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+            var factory = new ConnectionFactory
+            {
+                HostName = options.HostName,
+                DispatchConsumersAsync = true,
+            };
+            if (!string.IsNullOrEmpty(options.UserName))
+            {
+                factory.UserName = options.UserName;
+                factory.Password = options.Password;
+            }
+
+            return factory;
         });
         services.AddHostedService<RabbitMqTopologyStartupHostedService>();
         services.AddHostedService<OutboxRelayHostedService>();
