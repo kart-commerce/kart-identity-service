@@ -1,3 +1,4 @@
+using Kart.Identity.Api;
 using Kart.Identity.Api.Endpoints;
 using Kart.Identity.Api.HealthChecks;
 using Kart.Identity.Api.Middleware;
@@ -40,6 +41,8 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+await StartupConnectivityChecks.RunAsync(app);
 
 if (app.Environment.IsDevelopment())
 {
