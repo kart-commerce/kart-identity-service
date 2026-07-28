@@ -16,3 +16,13 @@ jobs:
       solution-path: KartIdentityService.sln
       dotnet-version: "8.0.x"
     secrets: inherit
+
+  migration-bundle:
+    name: Migration bundle (build + smoke check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker build smoke check
+        run: docker build -f Dockerfile.migrate -t ci-migrate-smoke-check:${{ github.sha }} .
