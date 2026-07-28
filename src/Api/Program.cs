@@ -1,28 +1,19 @@
 using Kart.Identity.Api.Endpoints;
 using Kart.Identity.Api.Middleware;
-using Kart.Identity.Api.Observability;
 using Kart.Identity.Application;
 using Kart.Identity.Infrastructure;
+using Kart.Shared.Configuration;
+using Kart.Shared.Observability;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Per-developer, gitignored override — the one machine-specific value every
-// contributor needs (GlobalConfig:Path) so the repo never has to carry any one
-// person's absolute path. See appsettings.Local.json.example.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// kart-conventions.md Configuration Management: GlobalConfig external-secrets-file bootstrap,
+// shared across every service - never reimplemented per service. See appsettings.Local.json.example.
+builder.AddKartGlobalConfig();
 
-var globalConfigPath = builder.Configuration["GlobalConfig:Path"];
-if (string.IsNullOrWhiteSpace(globalConfigPath))
-{
-    throw new InvalidOperationException(
-        "GlobalConfig:Path is not set — copy appsettings.Local.json.example to " +
-        "appsettings.Local.json and point it at your local secrets file.");
-}
-
-builder.Configuration.AddJsonFile(globalConfigPath, optional: false, reloadOnChange: true);
-
-builder.AddObservability();
+// kart-conventions.md Observability section: Serilog + OpenTelemetry SDK behind one DI call.
+builder.AddKartObservability("kart-identity-service");
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -214,6 +214,9 @@ PublishScripts/
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
+# except this repo's own vendored packages/ (kart-shared's packed Kart.Shared.* .nupkg files,
+# committed so Docker/CI builds are self-contained without a published feed — see nuget.config).
+!/packages/*.nupkg
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
