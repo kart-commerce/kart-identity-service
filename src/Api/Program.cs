@@ -7,11 +7,17 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Per-developer, gitignored override — the one machine-specific value every
+// contributor needs (GlobalConfig:Path) so the repo never has to carry any one
+// person's absolute path. See appsettings.Local.json.example.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 var globalConfigPath = builder.Configuration["GlobalConfig:Path"];
 if (string.IsNullOrWhiteSpace(globalConfigPath))
 {
     throw new InvalidOperationException(
-        "GlobalConfig:Path is not set — the app cannot locate its secrets file.");
+        "GlobalConfig:Path is not set — copy appsettings.Local.json.example to " +
+        "appsettings.Local.json and point it at your local secrets file.");
 }
 
 builder.Configuration.AddJsonFile(globalConfigPath, optional: false, reloadOnChange: true);

@@ -10,6 +10,10 @@
 # but ignored here too as a defense-in-depth backstop.
 globalconfig.json
 
+# Per-developer local overrides (currently just GlobalConfig:Path) — machine-specific,
+# never committed. Commit appsettings.Local.json.example instead.
+appsettings.Local.json
+
 # User-specific files
 *.rsuser
 *.suo
