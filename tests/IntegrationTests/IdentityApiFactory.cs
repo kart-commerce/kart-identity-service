@@ -80,6 +80,10 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Tells StartupConnectivityChecks to skip itself — this factory removes the real
+        // Redis/RabbitMQ registrations below, so there's nothing for it to connect to.
+        builder.UseEnvironment("Testing");
+
         using var rsa = RSA.Create(2048);
         var testPrivateKeyPem = rsa.ExportPkcs8PrivateKeyPem();
 

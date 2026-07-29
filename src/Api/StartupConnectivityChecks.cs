@@ -12,6 +12,15 @@ public static class StartupConnectivityChecks
 {
     public static async Task RunAsync(WebApplication app)
     {
+        // WebApplicationFactory-based tests (Contract/Integration) run this same Program.cs but
+        // swap Postgres for SQLite and remove the Redis/RabbitMQ registrations entirely - real
+        // connectivity is neither available nor meaningful there, so those factories mark
+        // themselves "Testing" and this step is a deliberate no-op for them.
+        if (app.Environment.IsEnvironment("Testing"))
+        {
+            return;
+        }
+
         var logger = app.Logger;
 
         await CheckAsync(logger, "PostgresDB", async () =>
