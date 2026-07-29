@@ -3,13 +3,13 @@ using Kart.Identity.Infrastructure.Federation;
 using Kart.Identity.Infrastructure.Messaging;
 using Kart.Identity.Infrastructure.Persistence;
 using Kart.Identity.Infrastructure.Security;
+using Kart.Shared.Messaging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using RabbitMQ.Client;
 using StackExchange.Redis;
 
 namespace Kart.Identity.Infrastructure;
@@ -99,27 +99,24 @@ public static class DependencyInjection
 
         // contracts/message-bus-manifest.json is the single source of truth for this
         // service's entire RabbitMQ topology — every exchange, queue, binding, dead-letter
-        // and retry-tier name. Nothing messaging-related is hardcoded in C#: the manifest is
-        // loaded once here and shared as a singleton; RabbitMqTopologyProvisioner scans it to
-        // declare the topology. IConnectionFactory only builds config, it does not connect
-        // eagerly, so registering it here is safe even if RabbitMQ is unreachable at
-        // startup — RabbitMqTopologyStartupHostedService, OutboxRelayHostedService and
-        // UserDataErasedConsumerHostedService each own their own retrying connection.
-        services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMq"));
-        services.AddSingleton(sp =>
+        // and retry-tier name. Nothing messaging-related is hardcoded in C#: the manifest-load/
+        // topology-declare/connection-factory mechanics are Kart.Shared.Messaging (identical
+        // across every Kart service); only this service's own RabbitMqOptions shape/validation
+        // and its own publisher/consumer business logic stay local.
+        services
+            .AddOptions<RabbitMqOptions>()
+            .Bind(configuration.GetSection(RabbitMqOptions.SectionName))
+            .Validate(
+                o => string.IsNullOrEmpty(o.UserName) == string.IsNullOrEmpty(o.Password),
+                "RabbitMq:UserName and RabbitMq:Password must either both be set or both be left unset.")
+            .ValidateOnStart();
+        services.AddKartMessageBusManifest(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value.ManifestPath);
+        services.AddKartRabbitMqConnectionFactory(sp =>
         {
             var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
-            var manifestPath = Path.IsPathRooted(options.ManifestPath)
-                ? options.ManifestPath
-                : Path.Combine(AppContext.BaseDirectory, options.ManifestPath);
-            return MessageBusManifestLoader.Load(manifestPath);
+            return new RabbitMqConnectionSettings(options.HostName, UserName: options.UserName, Password: options.Password);
         });
-        services.AddSingleton<IConnectionFactory>(_ => new ConnectionFactory
-        {
-            HostName = configuration["RabbitMq:HostName"] ?? "localhost",
-            DispatchConsumersAsync = true,
-        });
-        services.AddHostedService<RabbitMqTopologyStartupHostedService>();
+        services.AddKartRabbitMqTopologyStartup();
         services.AddHostedService<OutboxRelayHostedService>();
         services.AddHostedService<UserDataErasedConsumerHostedService>();
 

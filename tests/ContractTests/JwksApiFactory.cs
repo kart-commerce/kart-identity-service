@@ -18,6 +18,10 @@ public sealed class JwksApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Tells StartupConnectivityChecks to skip itself — same reasoning as
+        // IdentityApiFactory (see its ConfigureWebHost).
+        builder.UseEnvironment("Testing");
+
         using var rsa = RSA.Create(2048);
         var testPrivateKeyPem = rsa.ExportPkcs8PrivateKeyPem();
 
