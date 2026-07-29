@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Infrastructure.Messaging;
 using Kart.Identity.Infrastructure.Persistence;
+using Kart.Shared.Messaging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -74,6 +75,10 @@ public sealed class IdentityApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Tells StartupConnectivityChecks to skip itself — this factory removes the real
+        // Redis/RabbitMQ registrations below, so there's nothing for it to connect to.
+        builder.UseEnvironment("Testing");
+
         using var rsa = RSA.Create(2048);
         var testPrivateKeyPem = rsa.ExportPkcs8PrivateKeyPem();
 

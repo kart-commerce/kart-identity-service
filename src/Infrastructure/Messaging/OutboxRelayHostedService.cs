@@ -1,5 +1,7 @@
+using System.Diagnostics.Metrics;
 using System.Text;
 using Kart.Identity.Infrastructure.Persistence;
+using Kart.Shared.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,30 @@ public sealed class OutboxRelayHostedService : BackgroundService
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(10);
     private const int BatchSize = 50;
+
+    // A stuck relay (e.g. tonight's missing outbox_events table) previously only showed up as
+    // scrolling ERROR logs, with no distinction from an ordinary transient RabbitMQ blip. These
+    // two gauges make that distinction alertable: ConsecutiveFailures climbing without bound, or
+    // OldestPendingEventAgeSeconds growing past this service's normal poll cadence, both mean
+    // events aren't draining and a human should look, not just "reconnecting in 10s" forever.
+    private static readonly Meter Meter = new("Kart.Identity.OutboxRelay");
+    private static long _consecutiveFailures;
+    private static double _oldestPendingEventAgeSeconds;
+
+    private static readonly Counter<long> RelayFailureCounter = Meter.CreateCounter<long>(
+        "identity_outbox_relay_failures_total",
+        description: "Count of outbox relay loop failures (RabbitMQ connection or database query), each triggering a reconnect/retry.");
+
+    private static readonly ObservableGauge<long> ConsecutiveFailureGauge = Meter.CreateObservableGauge(
+        "identity_outbox_relay_consecutive_failures",
+        () => Interlocked.Read(ref _consecutiveFailures),
+        description: "Consecutive relay failures since the last successful poll. A sustained non-zero value means the relay is stuck (e.g. schema drift, broker outage) rather than recovering.");
+
+    private static readonly ObservableGauge<double> OldestPendingEventAgeGauge = Meter.CreateObservableGauge(
+        "identity_outbox_oldest_pending_event_age_seconds",
+        () => Volatile.Read(ref _oldestPendingEventAgeSeconds),
+        unit: "s",
+        description: "Age of the oldest unpublished outbox_events row as of the last successful poll (0 when the queue is empty). A growing value means events aren't draining.");
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConnectionFactory _connectionFactory;
@@ -58,7 +84,13 @@ public sealed class OutboxRelayHostedService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Identity outbox relay lost its RabbitMQ connection; reconnecting in {Delay}.", ReconnectDelay);
+                RelayFailureCounter.Add(1);
+                Interlocked.Increment(ref _consecutiveFailures);
+
+                // Not necessarily a RabbitMQ problem - this also catches RelayPendingBatchAsync's
+                // own database query failing (e.g. a missing/unmigrated outbox_events table),
+                // which used to be misreported here as a broker connection loss.
+                _logger.LogError(ex, "Identity outbox relay failed; reconnecting in {Delay}.", ReconnectDelay);
                 await Task.Delay(ReconnectDelay, stoppingToken);
             }
         }
@@ -83,6 +115,12 @@ public sealed class OutboxRelayHostedService : BackgroundService
             .OrderBy(e => e.OccurredAt)
             .Take(BatchSize)
             .ToListAsync(cancellationToken);
+
+        // The query above succeeded, so the relay is no longer stuck even if nothing is pending.
+        Interlocked.Exchange(ref _consecutiveFailures, 0);
+        _oldestPendingEventAgeSeconds = pending.Count == 0
+            ? 0
+            : (DateTimeOffset.UtcNow - pending[0].OccurredAt).TotalSeconds;
 
         if (pending.Count == 0)
         {
