@@ -57,6 +57,53 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
     }
 
     [Fact]
+    public async Task VerifyMfa_PendingUnconfirmedEnrollment_ConfirmsCredentialAndReturns200()
+    {
+        // edge-cases.md dead-end: Login gates Admin/Support Agent on an MFA
+        // challenge regardless of whether enrollment was ever confirmed, and
+        // /mfa/enroll/confirm needs a bearer token the user can't get while
+        // stuck on that challenge. Verify must accept a still-Pending
+        // credential's first valid code so this isn't a permanent lockout.
+        var client = _factory.CreateClient();
+        const string password = "SuperSecret1";
+        var email = $"mfa-pending-{Guid.NewGuid():N}@example.com";
+        var registerResponse = await client.PostAsJsonAsync(RegisterPath, new { email, password, displayName = "Admin User" });
+        registerResponse.EnsureSuccessStatusCode();
+        using var registerBody = JsonDocument.Parse(await registerResponse.Content.ReadAsStringAsync());
+        var accessToken = registerBody.RootElement.GetProperty("accessToken").GetString();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        dbContext.UserRoles.Add(UserRole.Grant(userId, PlatformRole.Admin, "test-seed", DateTimeOffset.UtcNow));
+        await dbContext.SaveChangesAsync();
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var enrollResponse = await client.PostAsync(EnrollPath, content: null);
+        enrollResponse.EnsureSuccessStatusCode();
+        using var enrollBody = JsonDocument.Parse(await enrollResponse.Content.ReadAsStringAsync());
+        var base32Secret = ExtractSecret(enrollBody.RootElement.GetProperty("provisioningUri").GetString()!);
+        client.DefaultRequestHeaders.Authorization = null;
+        // Enrollment is never confirmed here — this is the reported scenario.
+
+        var loginResponse = await client.PostAsJsonAsync(LoginPath, new { email, password });
+        Assert.Equal(HttpStatusCode.Accepted, loginResponse.StatusCode);
+        using var loginBody = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        var challengeId = loginBody.RootElement.GetProperty("challengeId").GetString();
+
+        var response = await client.PostAsJsonAsync(VerifyPath, new { challengeId, totpCode = ComputeCurrentCode(base32Secret) });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(body.RootElement.TryGetProperty("accessToken", out _));
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDbContext = verifyScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var credential = await verifyDbContext.MfaCredentials.SingleAsync(c => c.UserId == userId);
+        Assert.Equal(MfaCredentialStatus.Active, credential.Status);
+    }
+
+    [Fact]
     public async Task VerifyMfa_ChallengeAlreadyConsumed_Returns401OnSecondAttempt()
     {
         var client = _factory.CreateClient();

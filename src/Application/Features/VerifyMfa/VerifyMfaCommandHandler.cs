@@ -15,7 +15,14 @@ namespace Kart.Identity.Application.Features.VerifyMfa;
 /// "Partial-Auth Window During MFA": no token exists for the intermediate
 /// state, only this challengeId). Mints a session exactly like Login's
 /// already-authenticated branch, once the submitted TOTP code verifies against
-/// the challenge's owner's confirmed credential (IDN-5).
+/// the challenge's owner's credential (IDN-5).
+///
+/// Login gates Admin/Support Agent on an MFA challenge unconditionally
+/// (LoginCommandHandler), before any credential is confirmed. A still-Pending,
+/// not-yet-expired credential is therefore also accepted here: a valid code
+/// both confirms the enrollment (mirrors ConfirmMfaEnrollmentCommandHandler)
+/// and completes the login in the same call, so a user is never left holding
+/// a challenge they have no bearer token to confirm enrollment against.
 /// </summary>
 public sealed class VerifyMfaCommandHandler(
     IIdentityDbContext dbContext,
@@ -37,8 +44,13 @@ public sealed class VerifyMfaCommandHandler(
             throw new InvalidMfaChallengeException();
         }
 
+        var now = dateTimeProvider.UtcNow;
+
         var credential = await dbContext.MfaCredentials.FindAsync([challenge.UserId], cancellationToken);
-        if (credential is null || credential.Status != MfaCredentialStatus.Active)
+        var isConfirmablePending = credential is not null
+            && credential.Status == MfaCredentialStatus.Pending
+            && credential.PendingExpiresAt > now;
+        if (credential is null || (credential.Status != MfaCredentialStatus.Active && !isConfirmablePending))
         {
             throw new InvalidMfaChallengeException();
         }
@@ -49,7 +61,11 @@ public sealed class VerifyMfaCommandHandler(
             throw new InvalidMfaChallengeException();
         }
 
-        var now = dateTimeProvider.UtcNow;
+        if (isConfirmablePending)
+        {
+            credential.Confirm(now);
+        }
+
         var session = Session.CreateNative(challenge.UserId, now);
         var createdBy = challenge.UserId.ToString();
 

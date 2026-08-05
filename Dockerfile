@@ -1,7 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY KartIdentityService.sln .
+COPY KartIdentityService.sln nuget.config ./
+COPY packages/ packages/
 COPY src/Api/Kart.Identity.Api.csproj src/Api/
 COPY src/Application/Kart.Identity.Application.csproj src/Application/
 COPY src/Domain/Kart.Identity.Domain.csproj src/Domain/
