@@ -4,6 +4,7 @@ using Kart.Identity.Api.HealthChecks;
 using Kart.Identity.Api.Middleware;
 using Kart.Identity.Application;
 using Kart.Identity.Infrastructure;
+using Kart.Identity.Infrastructure.Seeding;
 using Kart.Shared.Configuration;
 using Kart.Shared.Observability;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -43,6 +44,7 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 await StartupConnectivityChecks.RunAsync(app);
+await ServicePrincipalSeeder.SeedAsync(app.Services, app.Configuration, CancellationToken.None);
 
 if (app.Environment.IsDevelopment())
 {
