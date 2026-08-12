@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
@@ -29,7 +30,28 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
             throw new InvalidOrExpiredMfaCodeException();
         }
 
-        var secret = mfaSecretCipher.Decrypt(credential.EncryptedSecret);
+        string secret;
+        try
+        {
+            secret = mfaSecretCipher.Decrypt(credential.EncryptedSecret);
+        }
+        catch (CryptographicException ex)
+        {
+            // Stored ciphertext no longer decrypts under the currently configured
+            // key — AesMfaSecretCipher has no key versioning, so this only happens
+            // if the encryption key was rotated after this credential was enrolled
+            // (an operational/config issue, not a bug in the caller's request).
+            // Logged at Error so it's distinguishable from an ordinary wrong-code
+            // attempt, but still surfaced to the client as the same generic,
+            // non-disclosing failure used for every other reason confirmation
+            // can fail.
+            logger.LogError(
+                ex,
+                "MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                request.UserId);
+            throw new InvalidOrExpiredMfaCodeException();
+        }
+
         if (!totpCodeValidator.IsCodeValid(secret, request.TotpCode))
         {
             throw new InvalidOrExpiredMfaCodeException();

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.ConfirmMfaEnrollment;
@@ -7,6 +8,7 @@ using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Kart.Identity.UnitTests.Features.ConfirmMfaEnrollment;
@@ -71,6 +73,26 @@ public class ConfirmMfaEnrollmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_UndecryptableCredential_ThrowsAndLeavesCredentialPending()
+    {
+        // AesMfaSecretCipher has no key versioning — if the encryption key was
+        // rotated after this credential's pending enrollment was created,
+        // Decrypt throws instead of returning garbage. That must surface as
+        // the same non-disclosing InvalidOrExpiredMfaCodeException every other
+        // failure here does, not a 500.
+        await using var dbContext = CreateInMemoryDbContext();
+        SeedPendingCredential(dbContext, expiresAt: FixedNow.AddMinutes(5));
+
+        var handler = CreateHandler(dbContext, codeIsValid: true, decryptThrows: true);
+
+        await Assert.ThrowsAsync<InvalidOrExpiredMfaCodeException>(
+            () => handler.Handle(new ConfirmMfaEnrollmentCommand(UserId, "123456"), CancellationToken.None));
+
+        var credential = await dbContext.MfaCredentials.SingleAsync();
+        Assert.Equal(MfaCredentialStatus.Pending, credential.Status);
+    }
+
+    [Fact]
     public async Task Handle_AlreadyActiveCredential_Throws()
     {
         await using var dbContext = CreateInMemoryDbContext();
@@ -93,10 +115,19 @@ public class ConfirmMfaEnrollmentCommandHandlerTests
         dbContext.SaveChanges();
     }
 
-    private static ConfirmMfaEnrollmentCommandHandler CreateHandler(IIdentityDbContext dbContext, bool codeIsValid)
+    private static ConfirmMfaEnrollmentCommandHandler CreateHandler(
+        IIdentityDbContext dbContext, bool codeIsValid, bool decryptThrows = false)
     {
         var mfaSecretCipher = Substitute.For<IMfaSecretCipher>();
-        mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        if (decryptThrows)
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>())
+                .Throws(new AuthenticationTagMismatchException());
+        }
+        else
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        }
 
         var totpCodeValidator = Substitute.For<ITotpCodeValidator>();
         totpCodeValidator.IsCodeValid(Arg.Any<string>(), Arg.Any<string>()).Returns(codeIsValid);

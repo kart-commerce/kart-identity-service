@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
@@ -15,7 +16,14 @@ namespace Kart.Identity.Application.Features.VerifyMfa;
 /// "Partial-Auth Window During MFA": no token exists for the intermediate
 /// state, only this challengeId). Mints a session exactly like Login's
 /// already-authenticated branch, once the submitted TOTP code verifies against
-/// the challenge's owner's confirmed credential (IDN-5).
+/// the challenge's owner's credential (IDN-5).
+///
+/// Login gates Admin/Support Agent on an MFA challenge unconditionally
+/// (LoginCommandHandler), before any credential is confirmed. A still-Pending,
+/// not-yet-expired credential is therefore also accepted here: a valid code
+/// both confirms the enrollment (mirrors ConfirmMfaEnrollmentCommandHandler)
+/// and completes the login in the same call, so a user is never left holding
+/// a challenge they have no bearer token to confirm enrollment against.
 /// </summary>
 public sealed class VerifyMfaCommandHandler(
     IIdentityDbContext dbContext,
@@ -37,19 +45,49 @@ public sealed class VerifyMfaCommandHandler(
             throw new InvalidMfaChallengeException();
         }
 
+        var now = dateTimeProvider.UtcNow;
+
         var credential = await dbContext.MfaCredentials.FindAsync([challenge.UserId], cancellationToken);
-        if (credential is null || credential.Status != MfaCredentialStatus.Active)
+        var isConfirmablePending = credential is not null
+            && credential.Status == MfaCredentialStatus.Pending
+            && credential.PendingExpiresAt > now;
+        if (credential is null || (credential.Status != MfaCredentialStatus.Active && !isConfirmablePending))
         {
             throw new InvalidMfaChallengeException();
         }
 
-        var secret = mfaSecretCipher.Decrypt(credential.EncryptedSecret);
+        string secret;
+        try
+        {
+            secret = mfaSecretCipher.Decrypt(credential.EncryptedSecret);
+        }
+        catch (CryptographicException ex)
+        {
+            // Stored ciphertext no longer decrypts under the currently configured
+            // key — AesMfaSecretCipher has no key versioning, so this only happens
+            // if the encryption key was rotated after this credential was enrolled
+            // (an operational/config issue, not a bug in the caller's request).
+            // Logged at Error so it's distinguishable from an ordinary wrong-code
+            // attempt, but still surfaced to the client as the same generic,
+            // non-disclosing failure used for every other reason this challenge
+            // can't be completed.
+            logger.LogError(
+                ex,
+                "MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                challenge.UserId);
+            throw new InvalidMfaChallengeException();
+        }
+
         if (!totpCodeValidator.IsCodeValid(secret, request.TotpCode))
         {
             throw new InvalidMfaChallengeException();
         }
 
-        var now = dateTimeProvider.UtcNow;
+        if (isConfirmablePending)
+        {
+            credential.Confirm(now);
+        }
+
         var session = Session.CreateNative(challenge.UserId, now);
         var createdBy = challenge.UserId.ToString();
 
