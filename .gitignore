@@ -14,6 +14,10 @@ globalconfig.json
 # never committed. Commit appsettings.Local.json.example instead.
 appsettings.Local.json
 
+# Grants admin/support roles by writing directly to the DB, bypassing the app layer —
+# kept locally only, never pushed (this repo is public).
+scripts/grant-role.sh
+
 # User-specific files
 *.rsuser
 *.suo

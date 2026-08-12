@@ -1,12 +1,15 @@
+using System.Security.Cryptography;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.VerifyMfa;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.Enums;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Kart.Identity.UnitTests.Features.VerifyMfa;
@@ -75,6 +78,72 @@ public class VerifyMfaCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_PendingUnexpiredCredentialAndValidCode_ConfirmsCredentialAndMintsTokens()
+    {
+        await using var dbContext = CreateInMemoryDbContext();
+        var user = SeedUser(dbContext);
+        SeedPendingCredential(dbContext, user.UserId, FixedNow.AddMinutes(5));
+
+        var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
+        mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
+            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+
+        var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
+
+        var response = await handler.Handle(new VerifyMfaCommand("challenge-id", "123456"), CancellationToken.None);
+
+        Assert.Equal("minted-access-token", response.AccessToken);
+        Assert.Equal(1, await dbContext.Sessions.CountAsync(s => s.UserId == user.UserId));
+
+        var credential = await dbContext.MfaCredentials.SingleAsync(c => c.UserId == user.UserId);
+        Assert.Equal(MfaCredentialStatus.Active, credential.Status);
+        Assert.Equal(FixedNow, credential.ConfirmedAt);
+        Assert.Null(credential.PendingExpiresAt);
+    }
+
+    [Fact]
+    public async Task Handle_ExpiredPendingCredential_ThrowsWithoutCreatingSession()
+    {
+        await using var dbContext = CreateInMemoryDbContext();
+        var user = SeedUser(dbContext);
+        SeedPendingCredential(dbContext, user.UserId, FixedNow.AddMinutes(-1));
+
+        var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
+        mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
+            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+
+        var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
+
+        await Assert.ThrowsAsync<InvalidMfaChallengeException>(
+            () => handler.Handle(new VerifyMfaCommand("challenge-id", "123456"), CancellationToken.None));
+
+        Assert.Equal(0, await dbContext.Sessions.CountAsync());
+    }
+
+    [Fact]
+    public async Task Handle_UndecryptableCredential_ThrowsInvalidMfaChallengeWithoutCreatingSession()
+    {
+        // AesMfaSecretCipher has no key versioning — if the encryption key was
+        // rotated after this credential was enrolled, Decrypt throws instead of
+        // returning garbage. That must surface as the same non-disclosing
+        // InvalidMfaChallengeException every other failure here does, not a 500.
+        await using var dbContext = CreateInMemoryDbContext();
+        var user = SeedUser(dbContext);
+        SeedActiveCredential(dbContext, user.UserId);
+
+        var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
+        mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
+            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+
+        var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true, decryptThrows: true);
+
+        await Assert.ThrowsAsync<InvalidMfaChallengeException>(
+            () => handler.Handle(new VerifyMfaCommand("challenge-id", "123456"), CancellationToken.None));
+
+        Assert.Equal(0, await dbContext.Sessions.CountAsync());
+    }
+
+    [Fact]
     public async Task Handle_WrongCode_ThrowsWithoutCreatingSession()
     {
         await using var dbContext = CreateInMemoryDbContext();
@@ -109,10 +178,26 @@ public class VerifyMfaCommandHandlerTests
         dbContext.SaveChanges();
     }
 
-    private static VerifyMfaCommandHandler CreateHandler(IIdentityDbContext dbContext, IMfaChallengeStore mfaChallengeStore, bool codeIsValid)
+    private static void SeedPendingCredential(IdentityDbContext dbContext, Guid userId, DateTimeOffset pendingExpiresAt)
+    {
+        var credential = MfaCredential.BeginEnrollment(userId, [0xAA, 0xBB], FixedNow.AddMinutes(-1), pendingExpiresAt - FixedNow.AddMinutes(-1));
+        dbContext.MfaCredentials.Add(credential);
+        dbContext.SaveChanges();
+    }
+
+    private static VerifyMfaCommandHandler CreateHandler(
+        IIdentityDbContext dbContext, IMfaChallengeStore mfaChallengeStore, bool codeIsValid, bool decryptThrows = false)
     {
         var mfaSecretCipher = Substitute.For<IMfaSecretCipher>();
-        mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        if (decryptThrows)
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>())
+                .Throws(new AuthenticationTagMismatchException());
+        }
+        else
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        }
 
         var totpCodeValidator = Substitute.For<ITotpCodeValidator>();
         totpCodeValidator.IsCodeValid(Arg.Any<string>(), Arg.Any<string>()).Returns(codeIsValid);

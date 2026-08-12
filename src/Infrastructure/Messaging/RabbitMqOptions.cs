@@ -15,6 +15,8 @@ public sealed class RabbitMqOptions
 
     public string HostName { get; set; } = "localhost";
 
+    public int Port { get; set; } = 5672;
+
     /// <summary>
     /// Dedicated non-guest broker credentials. RabbitMQ's default "guest" user is
     /// restricted to loopback-only connections, so any broker reached over a real
