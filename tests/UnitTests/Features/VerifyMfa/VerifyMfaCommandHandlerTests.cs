@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
@@ -8,6 +9,7 @@ using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Kart.Identity.UnitTests.Features.VerifyMfa;
@@ -119,6 +121,29 @@ public class VerifyMfaCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_UndecryptableCredential_ThrowsInvalidMfaChallengeWithoutCreatingSession()
+    {
+        // AesMfaSecretCipher has no key versioning — if the encryption key was
+        // rotated after this credential was enrolled, Decrypt throws instead of
+        // returning garbage. That must surface as the same non-disclosing
+        // InvalidMfaChallengeException every other failure here does, not a 500.
+        await using var dbContext = CreateInMemoryDbContext();
+        var user = SeedUser(dbContext);
+        SeedActiveCredential(dbContext, user.UserId);
+
+        var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
+        mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
+            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+
+        var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true, decryptThrows: true);
+
+        await Assert.ThrowsAsync<InvalidMfaChallengeException>(
+            () => handler.Handle(new VerifyMfaCommand("challenge-id", "123456"), CancellationToken.None));
+
+        Assert.Equal(0, await dbContext.Sessions.CountAsync());
+    }
+
+    [Fact]
     public async Task Handle_WrongCode_ThrowsWithoutCreatingSession()
     {
         await using var dbContext = CreateInMemoryDbContext();
@@ -160,10 +185,19 @@ public class VerifyMfaCommandHandlerTests
         dbContext.SaveChanges();
     }
 
-    private static VerifyMfaCommandHandler CreateHandler(IIdentityDbContext dbContext, IMfaChallengeStore mfaChallengeStore, bool codeIsValid)
+    private static VerifyMfaCommandHandler CreateHandler(
+        IIdentityDbContext dbContext, IMfaChallengeStore mfaChallengeStore, bool codeIsValid, bool decryptThrows = false)
     {
         var mfaSecretCipher = Substitute.For<IMfaSecretCipher>();
-        mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        if (decryptThrows)
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>())
+                .Throws(new AuthenticationTagMismatchException());
+        }
+        else
+        {
+            mfaSecretCipher.Decrypt(Arg.Any<byte[]>()).Returns("BASE32SECRET");
+        }
 
         var totpCodeValidator = Substitute.For<ITotpCodeValidator>();
         totpCodeValidator.IsCodeValid(Arg.Any<string>(), Arg.Any<string>()).Returns(codeIsValid);
