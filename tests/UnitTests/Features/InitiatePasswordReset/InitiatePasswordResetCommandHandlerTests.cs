@@ -55,7 +55,10 @@ public class InitiatePasswordResetCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider, NullLogger<InitiatePasswordResetCommandHandler>.Instance);
+        var publicWebLinkBuilder = Substitute.For<IPublicWebLinkBuilder>();
+        publicWebLinkBuilder.PasswordResetConfirmLink(Arg.Any<string>()).Returns(callInfo => $"https://kart.test/account/password-reset/confirm?token={callInfo.Arg<string>()}");
+
+        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider, publicWebLinkBuilder, NullLogger<InitiatePasswordResetCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

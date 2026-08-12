@@ -42,6 +42,7 @@ public sealed class SocialLoginCallbackCommandHandler(
 
         var now = dateTimeProvider.UtcNow;
         var identity = await oidcTokenExchangeClient.ExchangeCodeAsync(provider, request.Code, now, cancellationToken);
+        logger.LogInformation("Stage {Stage}: social login token exchange succeeded for provider {Provider}", "SocialLoginTokenExchangeSucceeded", request.Provider);
 
         var federatedIdentity = await dbContext.FederatedIdentities.SingleOrDefaultAsync(
             f => f.IdpType == FederatedIdpType.Social && f.IdpKey == request.Provider && f.ExternalSubjectId == identity.Subject,
@@ -95,7 +96,8 @@ public sealed class SocialLoginCallbackCommandHandler(
         var accessToken = accessTokenGenerator.Generate(createdBy, CustomerOnlyRoleClaims, scopes: []);
 
         logger.LogInformation(
-            "Social login completed for user {UserId} via provider {Provider}, session {SessionId} created (newUser={IsNewUser})",
+            "Stage {Stage}: social login session created for user {UserId} via provider {Provider}, session {SessionId} (newUser={IsNewUser})",
+            "SocialLoginSessionCreated",
             user.UserId,
             request.Provider,
             session.SessionId,

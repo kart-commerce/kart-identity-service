@@ -54,6 +54,10 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
                 (StatusCodes.Status401Unauthorized, new Problem("invalid_oidc_token", exception.Message)),
             SocialIdpNotConfiguredException =>
                 (StatusCodes.Status404NotFound, new Problem("idp_not_configured", exception.Message)),
+            OtpRateLimitExceededException =>
+                (StatusCodes.Status429TooManyRequests, new Problem("rate_limited", exception.Message)),
+            InvalidOrExpiredOtpCodeException =>
+                (StatusCodes.Status400BadRequest, new Problem("invalid_or_expired_code", exception.Message)),
             _ => (0, null)
         };
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using MediatR;
@@ -12,18 +13,18 @@ namespace Kart.Identity.Application.Features.InitiatePasswordReset;
 /// account-enumeration via response-shape difference; the no-op-when-unknown
 /// path below is what makes that true rather than just documented.
 ///
-/// No email-delivery mechanism is wired here: event-contract.md defines no
-/// password-reset-related event and requirement-spec.md's Consumes/Produces
-/// tables name none for this endpoint either. The raw token exists only in this
-/// handler's own stack — actual out-of-band delivery to the user is a genuine
-/// gap, flagged rather than invented a fix for, same shape as tickets.md's
-/// already-flagged native-role-elevation gap.
+/// Now enqueues a real `PasswordResetRequested` outbox event carrying the raw
+/// token so kart-notification-service can deliver it — this used to be a flagged,
+/// un-fixed gap (event-contract.md defined no password-reset event, so the raw
+/// token only ever existed in this handler's own stack). Closed as part of the
+/// User Registration, Login &amp; Authentication Journey flow build.
 /// </summary>
 public sealed class InitiatePasswordResetCommandHandler(
     IIdentityDbContext dbContext,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
     IDateTimeProvider dateTimeProvider,
+    IPublicWebLinkBuilder publicWebLinkBuilder,
     ILogger<InitiatePasswordResetCommandHandler> logger)
     : IRequestHandler<InitiatePasswordResetCommand>
 {
@@ -41,9 +42,23 @@ public sealed class InitiatePasswordResetCommandHandler(
         var tokenHash = tokenHasher.Hash(rawResetToken);
         var resetToken = PasswordResetToken.Issue(user.UserId, tokenHash, now);
 
+        var passwordResetRequested = OutboxEvent.Create(
+            user.UserId,
+            "PasswordResetRequested",
+            JsonSerializer.Serialize(new
+            {
+                userId = user.UserId,
+                email = user.Email,
+                resetLink = publicWebLinkBuilder.PasswordResetConfirmLink(rawResetToken),
+                expiresAt = resetToken.ExpiresAt
+            }),
+            now,
+            createdBy: "system:password-reset");
+
         dbContext.PasswordResetTokens.Add(resetToken);
+        dbContext.OutboxEvents.Add(passwordResetRequested);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Password reset initiated for user {UserId}", user.UserId);
+        logger.LogInformation("Stage {Stage}: password reset token issued and outbox event saved for user {UserId}", "PasswordResetTokenIssued", user.UserId);
     }
 }

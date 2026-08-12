@@ -2,64 +2,58 @@ using System.Text.Json;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
+using Kart.Identity.Application.Features.Login;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Kart.Identity.Application.Features.Login;
+namespace Kart.Identity.Application.Features.VerifyOtp;
 
 /// <summary>
-/// api-contract.yaml POST /auth/login. Session identifier is always freshly
-/// generated on success (edge-cases.md, "Session Fixation via Pre-Auth Session
-/// Reuse") — every successful login creates a brand-new `Session`/`RefreshToken`
-/// pair, exactly like registration, so there is no pre-auth identifier to carry
-/// over in the first place.
+/// api-contract.yaml POST /auth/otp/verify. Session/token minting on success is the
+/// exact same tail as LoginCommandHandler (fresh Session/RefreshToken pair, same
+/// mandatory-MFA-role gate for Admin/Support Agent) — deliberately duplicated rather
+/// than extracted, matching this codebase's own duplicate-per-slice precedent (see
+/// LoginCommandHandler's VerifyMfaCommandHandler sibling for the same shape).
 /// </summary>
-public sealed class LoginCommandHandler(
+public sealed class VerifyOtpCommandHandler(
     IIdentityDbContext dbContext,
-    IPasswordHasher passwordHasher,
+    IOtpCodeStore otpCodeStore,
+    IOtpAttemptThrottle otpAttemptThrottle,
     IAccessTokenGenerator accessTokenGenerator,
     IOpaqueTokenGenerator opaqueTokenGenerator,
     ITokenHasher tokenHasher,
     IDateTimeProvider dateTimeProvider,
-    ILoginAttemptThrottle loginAttemptThrottle,
     IMfaChallengeStore mfaChallengeStore,
-    ILogger<LoginCommandHandler> logger)
-    : IRequestHandler<LoginCommand, LoginResult>
+    ILogger<VerifyOtpCommandHandler> logger)
+    : IRequestHandler<VerifyOtpCommand, LoginResult>
 {
-    public async Task<LoginResult> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async Task<LoginResult> Handle(VerifyOtpCommand request, CancellationToken cancellationToken)
     {
         var email = request.Email.Trim();
 
-        if (await loginAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
+        if (await otpAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
         {
-            throw new LoginRateLimitExceededException();
+            throw new OtpRateLimitExceededException();
         }
 
-        var user = await dbContext.Users.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
-
-        // IPasswordHasher.Verify pays an equivalent-cost dummy check when
-        // user?.PasswordHash is null (unknown account, or a federated account
-        // with no native password) so a wrong-password and a no-such-account
-        // response aren't distinguishable by timing.
-        if (!passwordHasher.Verify(request.Password, user?.PasswordHash))
+        var userId = await otpCodeStore.VerifyAndConsumeAsync(email, request.Code, cancellationToken);
+        if (userId is null)
         {
-            await loginAttemptThrottle.RecordFailureAsync(email, request.IpAddress, cancellationToken);
-            throw new InvalidCredentialsException();
+            await otpAttemptThrottle.RecordAttemptAsync(email, request.IpAddress, cancellationToken);
+            throw new InvalidOrExpiredOtpCodeException();
         }
 
-        // passwordHasher.Verify only returns true when user is non-null with a
-        // non-null PasswordHash — unreachable otherwise, so this is safe.
-        var authenticatedUser = user!;
-
+        var authenticatedUser = await dbContext.Users.SingleAsync(u => u.UserId == userId.Value, cancellationToken);
         if (authenticatedUser.LockedAt is not null)
         {
             throw new AccountLockedException();
         }
 
-        await loginAttemptThrottle.ResetAsync(email, request.IpAddress, cancellationToken);
+        await otpAttemptThrottle.ResetAsync(email, request.IpAddress, cancellationToken);
+        logger.LogInformation("Stage {Stage}: OTP verified for user {UserId}", "OtpVerified", authenticatedUser.UserId);
 
         var roles = await dbContext.UserRoles
             .Where(r => r.UserId == authenticatedUser.UserId && r.RevokedAt == null)
@@ -67,14 +61,11 @@ public sealed class LoginCommandHandler(
             .ToListAsync(cancellationToken);
         var roleClaims = roles.Select(PlatformRoleClaims.ToClaimValue).ToArray();
 
-        // requirement-spec.md §2: MFA is mandatory at every login for Admin/Support
-        // Agent. Customer's separate self-elected-MFA check is wired in once
-        // IDN-4/IDN-5's `mfa_credentials` table exists — not invented here.
         var mfaRequired = roles.Contains(PlatformRole.Admin) || roles.Contains(PlatformRole.SupportAgent);
         if (mfaRequired)
         {
             var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId, roleClaims, cancellationToken);
-            logger.LogInformation("Stage {Stage}: MFA challenge issued for user {UserId}", "MfaChallengeIssued", authenticatedUser.UserId);
+            logger.LogInformation("Stage {Stage}: MFA challenge issued for user {UserId} after OTP verification", "MfaChallengeIssued", authenticatedUser.UserId);
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
 
@@ -101,8 +92,8 @@ public sealed class LoginCommandHandler(
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
 
         logger.LogInformation(
-            "Stage {Stage}: user {UserId} logged in, session {SessionId} created",
-            "LoginProcessCompletedSuccessfully",
+            "Stage {Stage}: user {UserId} logged in via OTP, session {SessionId} created",
+            "OtpLoginProcessCompletedSuccessfully",
             authenticatedUser.UserId,
             session.SessionId);
 

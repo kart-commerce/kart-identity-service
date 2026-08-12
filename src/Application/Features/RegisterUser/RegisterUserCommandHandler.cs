@@ -88,7 +88,8 @@ public sealed class RegisterUserCommandHandler(
         }
 
         logger.LogInformation(
-            "User {UserId} registered, session {SessionId} created",
+            "Stage {Stage}: user {UserId} registered, session {SessionId} created",
+            "RegisterProcessCompletedSuccessfully",
             user.UserId,
             session.SessionId);
 

@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<ITotpProvisioningService, TotpProvisioningService>();
         services.AddSingleton<ITotpCodeValidator, TotpCodeValidator>();
+        services.AddSingleton<IPublicWebLinkBuilder, PublicWebLinkBuilder>();
 
         services
             .AddOptions<MfaEncryptionOptions>()
@@ -73,6 +74,8 @@ public static class DependencyInjection
         services.AddScoped<IMfaChallengeStore, RedisMfaChallengeStore>();
         services.AddScoped<ITokenRevocationStore, RedisTokenRevocationStore>();
         services.AddScoped<ISamlAssertionReplayStore, RedisSamlAssertionReplayStore>();
+        services.AddScoped<IOtpCodeStore, RedisOtpCodeStore>();
+        services.AddScoped<IOtpAttemptThrottle, RedisOtpAttemptThrottle>();
 
         // No enterprise IdP is named as already-integrated anywhere in the design
         // docs (Okta/Azure AD/Google Workspace are the BRD's illustrative examples

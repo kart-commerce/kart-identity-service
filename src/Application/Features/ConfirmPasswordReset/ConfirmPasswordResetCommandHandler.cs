@@ -65,7 +65,8 @@ public sealed class ConfirmPasswordResetCommandHandler(
         await revocationStore.RevokeAllForUserAsync(user.UserId, now, cancellationToken);
 
         logger.LogInformation(
-            "Password reset completed for user {UserId}, {SessionCount} sessions revoked",
+            "Stage {Stage}: password reset completed for user {UserId}, {SessionCount} sessions revoked",
+            "PasswordResetConfirmed",
             user.UserId,
             liveSessions.Count);
     }

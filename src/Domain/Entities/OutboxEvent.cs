@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Kart.Identity.Domain.Entities;
 
 /// <summary>
@@ -16,6 +18,17 @@ public sealed class OutboxEvent
     public string Payload { get; private set; } = string.Empty;
     public DateTimeOffset OccurredAt { get; private set; }
     public DateTimeOffset? PublishedAt { get; private set; }
+
+    /// <summary>
+    /// The originating request/consumer's W3C traceparent, captured here at the single
+    /// Create choke point (not at every handler call site) — the outbox relay runs on its own
+    /// background-poller async context, seconds later, where `Activity.Current` is meaningless.
+    /// Read back at relay time via `Kart.Shared.Messaging.RabbitMqTraceContext.
+    /// StartPublishActivityFromStoredTraceParent` so the eventual RabbitMQ consumer's span
+    /// continues the same trace the original HTTP request started.
+    /// </summary>
+    public string? TraceParent { get; private set; }
+
     public string CreatedBy { get; private set; } = string.Empty;
     public DateTimeOffset UpdatedAt { get; private set; }
     public string UpdatedBy { get; private set; } = "system:identity-outbox-poller";
@@ -32,6 +45,7 @@ public sealed class OutboxEvent
             EventType = eventType,
             Payload = payloadJson,
             OccurredAt = now,
+            TraceParent = Activity.Current?.Id,
             CreatedBy = createdBy,
             UpdatedAt = now
         };

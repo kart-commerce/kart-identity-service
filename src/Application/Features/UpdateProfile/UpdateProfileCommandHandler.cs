@@ -63,7 +63,7 @@ public sealed class UpdateProfileCommandHandler(
 
         // Never the email/display name themselves — those are the PII this
         // update mutates, not something to echo into a log line.
-        logger.LogInformation("Profile updated for user {UserId}", user.UserId);
+        logger.LogInformation("Stage {Stage}: profile persisted and UserAccountUpdated outbox event saved for user {UserId}", "ProfilePersisted", user.UserId);
 
         return new UpdateProfileResponse(user.Email, user.DisplayName, now);
     }
