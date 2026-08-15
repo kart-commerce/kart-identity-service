@@ -90,17 +90,12 @@ public sealed class RegisterUserCommandHandler(
         }
 
         logger.LogInformation(
-            "Stage {Stage}: user {UserId} persisted, outbox events {UserRegisteredEventId} (UserRegistered) and {SessionCreatedEventId} (SessionCreated) enqueued",
-            "UserPersistedOutboxEventsEnqueued",
-            user.UserId,
-            userRegistered.EventId,
-            sessionCreated.EventId);
-
-        logger.LogInformation(
-            "Stage {Stage}: user {UserId} registered, session {SessionId} created",
+            "Stage {Stage}: user {UserId} registered, session {SessionId} created, outbox events {UserRegisteredEventId} (UserRegistered) and {SessionCreatedEventId} (SessionCreated) enqueued",
             "RegisterProcessCompletedSuccessfully",
             user.UserId,
-            session.SessionId);
+            session.SessionId,
+            userRegistered.EventId,
+            sessionCreated.EventId);
 
         return new RegisterUserResponse(
             AccessToken: accessToken.Token,

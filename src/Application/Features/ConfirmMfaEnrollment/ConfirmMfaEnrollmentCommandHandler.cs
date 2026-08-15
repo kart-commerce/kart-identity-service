@@ -63,8 +63,6 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
         credential.Confirm(now);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Stage {Stage}: MFA credential {UserId} persisted, enrollment confirmed", "MfaCredentialPersisted", request.UserId);
-        logger.LogInformation("MFA enrollment confirmed for user {UserId}", request.UserId);
-        logger.LogInformation("Stage {Stage}: MFA enrollment confirmation step completed for user {UserId}", "MfaEnrollmentConfirmationStepCompleted", request.UserId);
+        logger.LogInformation("Stage {Stage}: MFA enrollment confirmed for user {UserId}", "MfaEnrollmentConfirmationStepCompleted", request.UserId);
     }
 }

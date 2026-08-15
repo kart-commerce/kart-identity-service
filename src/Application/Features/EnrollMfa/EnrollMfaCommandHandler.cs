@@ -45,12 +45,9 @@ public sealed class EnrollMfaCommandHandler(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "Stage {Stage}: MFA credential {CredentialUserId} persisted, pending enrollment",
-            "MfaCredentialPersisted",
-            credential.UserId);
-
-        logger.LogInformation("MFA enrollment started for user {UserId}", request.UserId);
-        logger.LogInformation("Stage {Stage}: MFA enrollment step completed for user {UserId}", "MfaEnrollmentStepCompleted", request.UserId);
+            "Stage {Stage}: MFA enrollment started for user {UserId}, credential persisted pending confirmation",
+            "MfaEnrollmentStepCompleted",
+            request.UserId);
 
         return new EnrollMfaResponse(enrollment.ProvisioningUri, credential.PendingExpiresAt!.Value);
     }

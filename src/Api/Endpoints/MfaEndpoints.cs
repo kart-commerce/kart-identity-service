@@ -25,7 +25,6 @@ public static class MfaEndpoints
             using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             logger.LogInformation("Stage {Stage}: MFA enroll request received for user {UserId}", "EnrollMfaRequestReceived", userId);
-            logger.LogInformation("Stage {Stage}: dispatching EnrollMfaCommand for user {UserId}", "EnrollMfaCommandDispatched", userId);
             var response = await sender.Send(new EnrollMfaCommand(userId), cancellationToken);
             return Results.Ok(response);
         })
@@ -39,7 +38,6 @@ public static class MfaEndpoints
             using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
             logger.LogInformation("Stage {Stage}: MFA enroll confirm request received for user {UserId}", "ConfirmMfaEnrollmentRequestReceived", userId);
-            logger.LogInformation("Stage {Stage}: dispatching ConfirmMfaEnrollmentCommand for user {UserId}", "ConfirmMfaEnrollmentCommandDispatched", userId);
             await sender.Send(new ConfirmMfaEnrollmentCommand(userId, request.TotpCode), cancellationToken);
             return Results.Ok();
         })
@@ -53,7 +51,6 @@ public static class MfaEndpoints
         {
             using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             logger.LogInformation("Stage {Stage}: MFA verify request received for challenge {ChallengeId}", "VerifyMfaRequestReceived", request.ChallengeId);
-            logger.LogInformation("Stage {Stage}: dispatching VerifyMfaCommand for challenge {ChallengeId}", "VerifyMfaCommandDispatched", request.ChallengeId);
             var response = await sender.Send(new VerifyMfaCommand(request.ChallengeId, request.TotpCode), cancellationToken);
             return Results.Ok(response);
         })

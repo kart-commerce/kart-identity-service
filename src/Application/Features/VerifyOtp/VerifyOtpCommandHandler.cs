@@ -94,20 +94,14 @@ public sealed class VerifyOtpCommandHandler(
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Stage {Stage}: session {SessionId} persisted for user {UserId}, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
-            "SessionPersistedOutboxEventEnqueued",
-            session.SessionId,
-            authenticatedUser.UserId,
-            sessionCreated.EventId);
-
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
 
         logger.LogInformation(
-            "Stage {Stage}: user {UserId} logged in via OTP, session {SessionId} created",
+            "Stage {Stage}: user {UserId} logged in via OTP, session {SessionId} created, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
             "OtpLoginProcessCompletedSuccessfully",
             authenticatedUser.UserId,
-            session.SessionId);
+            session.SessionId,
+            sessionCreated.EventId);
 
         return new AuthenticatedLoginResult(
             AccessToken: accessToken.Token,

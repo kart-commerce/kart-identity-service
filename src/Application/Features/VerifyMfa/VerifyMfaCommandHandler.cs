@@ -112,20 +112,14 @@ public sealed class VerifyMfaCommandHandler(
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Stage {Stage}: session {SessionId} persisted for user {UserId}, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
-            "SessionPersistedOutboxEventEnqueued",
-            session.SessionId,
-            challenge.UserId,
-            sessionCreated.EventId);
-
         var accessToken = accessTokenGenerator.Generate(createdBy, challenge.Roles, scopes: []);
 
         logger.LogInformation(
-            "MFA verified for user {UserId}, session {SessionId} created",
+            "Stage {Stage}: MFA verified for user {UserId}, session {SessionId} created, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
+            "VerifyMfaProcessCompletedSuccessfully",
             challenge.UserId,
-            session.SessionId);
-        logger.LogInformation("Stage {Stage}: MFA verification step completed for user {UserId}", "VerifyMfaProcessCompletedSuccessfully", challenge.UserId);
+            session.SessionId,
+            sessionCreated.EventId);
 
         return new VerifyMfaResponse(
             AccessToken: accessToken.Token,
