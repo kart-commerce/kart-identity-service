@@ -37,6 +37,7 @@ public sealed class RegisterUserCommandHandler(
         var emailTaken = await dbContext.Users.AnyAsync(u => u.Email == email, cancellationToken);
         if (emailTaken)
         {
+            logger.LogWarning("Stage {Stage}: registration rejected, email {Email} already registered", "EmailAlreadyRegistered", email);
             throw new EmailAlreadyRegisteredException(email);
         }
 
@@ -84,8 +85,16 @@ public sealed class RegisterUserCommandHandler(
         {
             // Only uq_users_email can plausibly fail here — every other row's key is
             // a freshly generated Guid.
+            logger.LogWarning("Stage {Stage}: registration rejected, email {Email} lost the uq_users_email race", "EmailAlreadyRegistered", email);
             throw new EmailAlreadyRegisteredException(email);
         }
+
+        logger.LogInformation(
+            "Stage {Stage}: user {UserId} persisted, outbox events {UserRegisteredEventId} (UserRegistered) and {SessionCreatedEventId} (SessionCreated) enqueued",
+            "UserPersistedOutboxEventsEnqueued",
+            user.UserId,
+            userRegistered.EventId,
+            sessionCreated.EventId);
 
         logger.LogInformation(
             "Stage {Stage}: user {UserId} registered, session {SessionId} created",

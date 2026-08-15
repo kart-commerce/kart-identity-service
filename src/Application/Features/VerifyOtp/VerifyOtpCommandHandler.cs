@@ -36,6 +36,7 @@ public sealed class VerifyOtpCommandHandler(
 
         if (await otpAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
         {
+            logger.LogWarning("Stage {Stage}: OTP verify rejected for {Email}, rate limit exceeded", "OtpRateLimitExceeded", email);
             throw new OtpRateLimitExceededException();
         }
 
@@ -43,12 +44,14 @@ public sealed class VerifyOtpCommandHandler(
         if (userId is null)
         {
             await otpAttemptThrottle.RecordAttemptAsync(email, request.IpAddress, cancellationToken);
+            logger.LogWarning("Stage {Stage}: OTP verify rejected for {Email}, invalid or expired code", "InvalidOrExpiredOtpCode", email);
             throw new InvalidOrExpiredOtpCodeException();
         }
 
         var authenticatedUser = await dbContext.Users.SingleAsync(u => u.UserId == userId.Value, cancellationToken);
         if (authenticatedUser.LockedAt is not null)
         {
+            logger.LogWarning("Stage {Stage}: OTP verify rejected for user {UserId}, account locked", "AccountLocked", authenticatedUser.UserId);
             throw new AccountLockedException();
         }
 
@@ -69,6 +72,8 @@ public sealed class VerifyOtpCommandHandler(
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
 
+        logger.LogInformation("Stage {Stage}: MFA not required, issuing tokens directly for user {UserId}", "MfaNotRequiredTokensIssued", authenticatedUser.UserId);
+
         var now = dateTimeProvider.UtcNow;
         var session = Session.CreateNative(authenticatedUser.UserId, now);
         var createdBy = authenticatedUser.UserId.ToString();
@@ -88,6 +93,13 @@ public sealed class VerifyOtpCommandHandler(
         dbContext.RefreshTokens.Add(refreshToken);
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Stage {Stage}: session {SessionId} persisted for user {UserId}, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
+            "SessionPersistedOutboxEventEnqueued",
+            session.SessionId,
+            authenticatedUser.UserId,
+            sessionCreated.EventId);
 
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
 

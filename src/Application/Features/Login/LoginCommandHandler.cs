@@ -35,6 +35,7 @@ public sealed class LoginCommandHandler(
 
         if (await loginAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
         {
+            logger.LogWarning("Stage {Stage}: login rejected for {Email}, rate limit exceeded", "LoginRateLimitExceeded", email);
             throw new LoginRateLimitExceededException();
         }
 
@@ -47,6 +48,7 @@ public sealed class LoginCommandHandler(
         if (!passwordHasher.Verify(request.Password, user?.PasswordHash))
         {
             await loginAttemptThrottle.RecordFailureAsync(email, request.IpAddress, cancellationToken);
+            logger.LogWarning("Stage {Stage}: login rejected for {Email}, invalid credentials", "InvalidCredentials", email);
             throw new InvalidCredentialsException();
         }
 
@@ -56,6 +58,7 @@ public sealed class LoginCommandHandler(
 
         if (authenticatedUser.LockedAt is not null)
         {
+            logger.LogWarning("Stage {Stage}: login rejected for user {UserId}, account locked", "AccountLocked", authenticatedUser.UserId);
             throw new AccountLockedException();
         }
 
@@ -78,6 +81,8 @@ public sealed class LoginCommandHandler(
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
 
+        logger.LogInformation("Stage {Stage}: MFA not required, issuing tokens directly for user {UserId}", "MfaNotRequiredTokensIssued", authenticatedUser.UserId);
+
         var now = dateTimeProvider.UtcNow;
         var session = Session.CreateNative(authenticatedUser.UserId, now);
         var createdBy = authenticatedUser.UserId.ToString();
@@ -97,6 +102,13 @@ public sealed class LoginCommandHandler(
         dbContext.RefreshTokens.Add(refreshToken);
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Stage {Stage}: session {SessionId} persisted for user {UserId}, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
+            "SessionPersistedOutboxEventEnqueued",
+            session.SessionId,
+            authenticatedUser.UserId,
+            sessionCreated.EventId);
 
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes: []);
 

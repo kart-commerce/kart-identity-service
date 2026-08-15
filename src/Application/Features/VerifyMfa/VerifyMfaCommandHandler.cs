@@ -42,6 +42,7 @@ public sealed class VerifyMfaCommandHandler(
         var challenge = await mfaChallengeStore.GetAndConsumeAsync(request.ChallengeId, cancellationToken);
         if (challenge is null)
         {
+            logger.LogWarning("Stage {Stage}: MFA verify rejected for challenge {ChallengeId}, challenge not found or already consumed", "InvalidMfaChallenge", request.ChallengeId);
             throw new InvalidMfaChallengeException();
         }
 
@@ -53,6 +54,7 @@ public sealed class VerifyMfaCommandHandler(
             && credential.PendingExpiresAt > now;
         if (credential is null || (credential.Status != MfaCredentialStatus.Active && !isConfirmablePending))
         {
+            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, no active or confirmable credential", "InvalidMfaChallenge", challenge.UserId);
             throw new InvalidMfaChallengeException();
         }
 
@@ -73,19 +75,22 @@ public sealed class VerifyMfaCommandHandler(
             // can't be completed.
             logger.LogError(
                 ex,
-                "MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                "Stage {Stage}: MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                "InvalidMfaChallenge",
                 challenge.UserId);
             throw new InvalidMfaChallengeException();
         }
 
         if (!totpCodeValidator.IsCodeValid(secret, request.TotpCode))
         {
+            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, invalid TOTP code", "InvalidMfaChallenge", challenge.UserId);
             throw new InvalidMfaChallengeException();
         }
 
         if (isConfirmablePending)
         {
             credential.Confirm(now);
+            logger.LogInformation("Stage {Stage}: MFA credential {UserId} confirmed during verify", "MfaEnrollmentConfirmedDuringVerify", challenge.UserId);
         }
 
         var session = Session.CreateNative(challenge.UserId, now);
@@ -107,12 +112,20 @@ public sealed class VerifyMfaCommandHandler(
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        logger.LogInformation(
+            "Stage {Stage}: session {SessionId} persisted for user {UserId}, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
+            "SessionPersistedOutboxEventEnqueued",
+            session.SessionId,
+            challenge.UserId,
+            sessionCreated.EventId);
+
         var accessToken = accessTokenGenerator.Generate(createdBy, challenge.Roles, scopes: []);
 
         logger.LogInformation(
             "MFA verified for user {UserId}, session {SessionId} created",
             challenge.UserId,
             session.SessionId);
+        logger.LogInformation("Stage {Stage}: MFA verification step completed for user {UserId}", "VerifyMfaProcessCompletedSuccessfully", challenge.UserId);
 
         return new VerifyMfaResponse(
             AccessToken: accessToken.Token,

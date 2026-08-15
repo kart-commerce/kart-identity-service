@@ -27,6 +27,7 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
 
         if (credential is null || credential.Status != MfaCredentialStatus.Pending || credential.PendingExpiresAt <= now)
         {
+            logger.LogWarning("Stage {Stage}: MFA enrollment confirm rejected for user {UserId}, no valid pending enrollment", "InvalidOrExpiredMfaCode", request.UserId);
             throw new InvalidOrExpiredMfaCodeException();
         }
 
@@ -47,19 +48,23 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
             // can fail.
             logger.LogError(
                 ex,
-                "MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                "Stage {Stage}: MFA secret for user {UserId} could not be decrypted with the current encryption key",
+                "InvalidOrExpiredMfaCode",
                 request.UserId);
             throw new InvalidOrExpiredMfaCodeException();
         }
 
         if (!totpCodeValidator.IsCodeValid(secret, request.TotpCode))
         {
+            logger.LogWarning("Stage {Stage}: MFA enrollment confirm rejected for user {UserId}, invalid TOTP code", "InvalidOrExpiredMfaCode", request.UserId);
             throw new InvalidOrExpiredMfaCodeException();
         }
 
         credential.Confirm(now);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        logger.LogInformation("Stage {Stage}: MFA credential {UserId} persisted, enrollment confirmed", "MfaCredentialPersisted", request.UserId);
         logger.LogInformation("MFA enrollment confirmed for user {UserId}", request.UserId);
+        logger.LogInformation("Stage {Stage}: MFA enrollment confirmation step completed for user {UserId}", "MfaEnrollmentConfirmationStepCompleted", request.UserId);
     }
 }

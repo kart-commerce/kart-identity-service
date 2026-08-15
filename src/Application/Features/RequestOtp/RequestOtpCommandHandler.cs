@@ -29,6 +29,7 @@ public sealed class RequestOtpCommandHandler(
 
         if (await otpAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
         {
+            logger.LogWarning("Stage {Stage}: OTP request rejected for {Email}, rate limit exceeded", "OtpRateLimitExceeded", email);
             throw new OtpRateLimitExceededException();
         }
 
@@ -37,6 +38,10 @@ public sealed class RequestOtpCommandHandler(
         var user = await dbContext.Users.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
         if (user is null)
         {
+            // Deliberate no-op, not a failure — api-contract.yaml always responds 202 regardless
+            // of whether the email matches an account (account-enumeration avoidance), so this
+            // has to be its own searchable Stage rather than silently falling through.
+            logger.LogInformation("Stage {Stage}: OTP request no-op for {Email}, no matching account", "OtpRequestNoOpUnknownEmail", email);
             return;
         }
 
@@ -53,6 +58,10 @@ public sealed class RequestOtpCommandHandler(
         dbContext.OutboxEvents.Add(otpRequested);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Stage {Stage}: OTP code issued for user {UserId}", "OtpCodeIssued", user.UserId);
+        logger.LogInformation(
+            "Stage {Stage}: OTP code issued for user {UserId}, outbox event {OtpRequestedEventId} (OtpCodeRequested) enqueued",
+            "OtpCodeIssued",
+            user.UserId,
+            otpRequested.EventId);
     }
 }

@@ -27,6 +27,7 @@ public static class AuthEndpoints
             using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             logger.LogInformation("Stage {Stage}: register request received for {Email}", "RegisterRequestReceived", request.Email);
             var command = new RegisterUserCommand(request.Email, request.Password, request.DisplayName);
+            logger.LogInformation("Stage {Stage}: dispatching RegisterUserCommand for {Email}", "RegisterUserCommandDispatched", request.Email);
             var response = await sender.Send(command, cancellationToken);
             return Results.Created((string?)null, response);
         })
@@ -41,6 +42,7 @@ public static class AuthEndpoints
             logger.LogInformation("Stage {Stage}: login request received for {Email}", "LoginRequestReceived", request.Email);
             var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var command = new LoginCommand(request.Email, request.Password, ipAddress);
+            logger.LogInformation("Stage {Stage}: dispatching LoginCommand for {Email}", "LoginCommandDispatched", request.Email);
             var result = await sender.Send(command, cancellationToken);
 
             return result switch
@@ -119,6 +121,7 @@ public static class AuthEndpoints
             using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             logger.LogInformation("Stage {Stage}: OTP request received for {Email}", "OtpRequestReceived", request.Email);
             var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            logger.LogInformation("Stage {Stage}: dispatching RequestOtpCommand for {Email}", "RequestOtpCommandDispatched", request.Email);
             await sender.Send(new RequestOtpCommand(request.Email, ipAddress), cancellationToken);
             return Results.Accepted();
         })
@@ -132,6 +135,7 @@ public static class AuthEndpoints
             logger.LogInformation("Stage {Stage}: OTP verify request received for {Email}", "OtpVerifyRequestReceived", request.Email);
             var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var command = new VerifyOtpCommand(request.Email, request.Code, ipAddress);
+            logger.LogInformation("Stage {Stage}: dispatching VerifyOtpCommand for {Email}", "VerifyOtpCommandDispatched", request.Email);
             var result = await sender.Send(command, cancellationToken);
 
             return result switch
