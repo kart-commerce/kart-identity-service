@@ -2,6 +2,7 @@ using System.Text.Json;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,15 +26,15 @@ public sealed class RequestOtpCommandHandler(
 {
     public async Task Handle(RequestOtpCommand request, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim();
+        var email = EmailAddress.From(request.Email.Trim());
 
-        if (await otpAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
+        if (await otpAttemptThrottle.IsBlockedAsync(email.ToString(), request.IpAddress, cancellationToken))
         {
             logger.LogWarning("Stage {Stage}: OTP request rejected for {Email}, rate limit exceeded", "OtpRateLimitExceeded", email);
             throw new OtpRateLimitExceededException();
         }
 
-        await otpAttemptThrottle.RecordAttemptAsync(email, request.IpAddress, cancellationToken);
+        await otpAttemptThrottle.RecordAttemptAsync(email.ToString(), request.IpAddress, cancellationToken);
 
         var user = await dbContext.Users.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
         if (user is null)
@@ -45,13 +46,13 @@ public sealed class RequestOtpCommandHandler(
             return;
         }
 
-        var code = await otpCodeStore.IssueAsync(email, user.UserId, cancellationToken);
+        var code = await otpCodeStore.IssueAsync(email.ToString(), user.UserId.Value, cancellationToken);
 
         var now = dateTimeProvider.UtcNow;
         var otpRequested = OutboxEvent.Create(
-            user.UserId,
+            user.UserId.Value,
             "OtpCodeRequested",
-            JsonSerializer.Serialize(new { userId = user.UserId, email = user.Email, code, expiresInSeconds = 300 }),
+            JsonSerializer.Serialize(new { userId = user.UserId.Value, email = user.Email?.Value, code, expiresInSeconds = 300 }),
             now,
             createdBy: "system:otp-request");
 

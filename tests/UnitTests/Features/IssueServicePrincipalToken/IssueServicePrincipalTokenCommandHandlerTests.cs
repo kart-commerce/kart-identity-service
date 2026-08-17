@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.IssueServicePrincipalToken;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -84,7 +85,7 @@ public class IssueServicePrincipalTokenCommandHandlerTests
 
     private static void SeedPrincipal(IdentityDbContext dbContext, PlatformRole role, ServicePrincipalStatus status)
     {
-        var principal = ServicePrincipal.Provision(ClientId, StoredHash, role, FixedNow, "test-seed");
+        var principal = ServicePrincipal.Provision(ServicePrincipalClientId.From(ClientId), StoredHash, role, FixedNow, "test-seed");
         if (status == ServicePrincipalStatus.Revoked)
         {
             typeof(ServicePrincipal).GetProperty(nameof(ServicePrincipal.Status))!.SetValue(principal, ServicePrincipalStatus.Revoked);

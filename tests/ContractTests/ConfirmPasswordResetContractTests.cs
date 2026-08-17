@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +50,7 @@ public class ConfirmPasswordResetContractTests : IClassFixture<IdentityApiFactor
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var tokenHasher = scope.ServiceProvider.GetRequiredService<ITokenHasher>();
-        var user = await dbContext.Users.SingleAsync(u => u.Email == email);
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
         var rawResetToken = $"raw-reset-token-{Guid.NewGuid():N}";
         dbContext.PasswordResetTokens.Add(PasswordResetToken.Issue(user.UserId, tokenHasher.Hash(rawResetToken), DateTimeOffset.UtcNow));
         await dbContext.SaveChangesAsync();

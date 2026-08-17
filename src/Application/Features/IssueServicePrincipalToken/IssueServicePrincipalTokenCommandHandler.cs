@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,9 @@ public sealed class IssueServicePrincipalTokenCommandHandler(
 {
     public async Task<IssueServicePrincipalTokenResponse> Handle(IssueServicePrincipalTokenCommand request, CancellationToken cancellationToken)
     {
+        var clientId = ServicePrincipalClientId.From(request.ClientId);
         var principal = await dbContext.ServicePrincipals
-            .SingleOrDefaultAsync(sp => sp.ClientId == request.ClientId, cancellationToken);
+            .SingleOrDefaultAsync(sp => sp.ClientId == clientId, cancellationToken);
 
         // IPasswordHasher.Verify pays an equivalent-cost dummy check for an
         // unknown client_id, same account-existence timing protection as
@@ -45,7 +47,7 @@ public sealed class IssueServicePrincipalTokenCommandHandler(
             : request.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var roleClaim = PlatformRoleClaims.ToClaimValue(principal.Role);
-        var accessToken = accessTokenGenerator.Generate(principal.ClientId, [roleClaim], scopes);
+        var accessToken = accessTokenGenerator.Generate(principal.ClientId.ToString(), [roleClaim], scopes);
 
         logger.LogInformation(
             "Service principal token issued for client {ClientId} with role {Role}",

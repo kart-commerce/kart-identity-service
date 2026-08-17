@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,6 +20,7 @@ public sealed class ServicePrincipalConfiguration : IEntityTypeConfiguration<Ser
         builder.HasKey(sp => sp.ClientId);
         builder.Property(sp => sp.ClientId)
             .HasColumnName("client_id")
+            .HasConversion(DomainValueConverters.ServicePrincipalClientId)
             .ValueGeneratedNever();
 
         builder.Property(sp => sp.ClientSecretHash).HasColumnName("client_secret_hash").IsRequired();

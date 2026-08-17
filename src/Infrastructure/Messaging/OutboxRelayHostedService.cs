@@ -151,7 +151,7 @@ public sealed class OutboxRelayHostedService : BackgroundService
                 exchange: exchange,
                 routingKey: routingKey,
                 basicProperties: properties,
-                body: Encoding.UTF8.GetBytes(WithEventId(outboxEvent.Payload, outboxEvent.EventId)));
+                body: Encoding.UTF8.GetBytes(WithEventId(outboxEvent.Payload, outboxEvent.EventId.Value)));
 
             outboxEvent.MarkPublished(DateTimeOffset.UtcNow);
 

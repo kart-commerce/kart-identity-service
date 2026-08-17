@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -48,13 +49,14 @@ public sealed class VerifyMfaCommandHandler(
 
         var now = dateTimeProvider.UtcNow;
 
-        var credential = await dbContext.MfaCredentials.FindAsync([challenge.UserId], cancellationToken);
+        var userId = UserId.From(challenge.UserId);
+        var credential = await dbContext.MfaCredentials.FindAsync([userId], cancellationToken);
         var isConfirmablePending = credential is not null
             && credential.Status == MfaCredentialStatus.Pending
             && credential.PendingExpiresAt > now;
         if (credential is null || (credential.Status != MfaCredentialStatus.Active && !isConfirmablePending))
         {
-            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, no active or confirmable credential", "InvalidMfaChallenge", challenge.UserId);
+            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, no active or confirmable credential", "InvalidMfaChallenge", userId);
             throw new InvalidMfaChallengeException();
         }
 
@@ -77,33 +79,33 @@ public sealed class VerifyMfaCommandHandler(
                 ex,
                 "Stage {Stage}: MFA secret for user {UserId} could not be decrypted with the current encryption key",
                 "InvalidMfaChallenge",
-                challenge.UserId);
+                userId);
             throw new InvalidMfaChallengeException();
         }
 
         if (!totpCodeValidator.IsCodeValid(secret, request.TotpCode))
         {
-            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, invalid TOTP code", "InvalidMfaChallenge", challenge.UserId);
+            logger.LogWarning("Stage {Stage}: MFA verify rejected for user {UserId}, invalid TOTP code", "InvalidMfaChallenge", userId);
             throw new InvalidMfaChallengeException();
         }
 
         if (isConfirmablePending)
         {
             credential.Confirm(now);
-            logger.LogInformation("Stage {Stage}: MFA credential {UserId} confirmed during verify", "MfaEnrollmentConfirmedDuringVerify", challenge.UserId);
+            logger.LogInformation("Stage {Stage}: MFA credential {UserId} confirmed during verify", "MfaEnrollmentConfirmedDuringVerify", userId);
         }
 
-        var session = Session.CreateNative(challenge.UserId, now);
-        var createdBy = challenge.UserId.ToString();
+        var session = Session.CreateNative(userId, now);
+        var createdBy = userId.ToString();
 
         var rawRefreshToken = opaqueTokenGenerator.Generate();
         var refreshTokenHash = tokenHasher.Hash(rawRefreshToken);
         var refreshToken = RefreshToken.IssueInitial(session.SessionId, refreshTokenHash, now, session.AbsoluteExpiresAt, createdBy);
 
         var sessionCreated = OutboxEvent.Create(
-            challenge.UserId,
+            userId.Value,
             "SessionCreated",
-            JsonSerializer.Serialize(new { userId = challenge.UserId, sessionId = session.SessionId }),
+            JsonSerializer.Serialize(new { userId = userId.Value, sessionId = session.SessionId.Value }),
             now,
             createdBy);
 
@@ -117,7 +119,7 @@ public sealed class VerifyMfaCommandHandler(
         logger.LogInformation(
             "Stage {Stage}: MFA verified for user {UserId}, session {SessionId} created, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
             "VerifyMfaProcessCompletedSuccessfully",
-            challenge.UserId,
+            userId,
             session.SessionId,
             sessionCreated.EventId);
 

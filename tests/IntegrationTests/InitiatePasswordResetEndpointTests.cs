@@ -28,7 +28,7 @@ public class InitiatePasswordResetEndpointTests : IClassFixture<IdentityApiFacto
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         Assert.True(await dbContext.PasswordResetTokens.AnyAsync(t => t.UserId == userId));
     }
 

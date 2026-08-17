@@ -2,6 +2,7 @@ using System.Net;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
@@ -47,7 +48,7 @@ public class IssueServicePrincipalTokenContractTests : IClassFixture<IdentityApi
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var clientId = $"principal-contract-{Guid.NewGuid():N}";
         dbContext.ServicePrincipals.Add(ServicePrincipal.Provision(
-            clientId, passwordHasher.Hash(ClientSecret), PlatformRole.Admin, DateTimeOffset.UtcNow, "test-seed"));
+            ServicePrincipalClientId.From(clientId), passwordHasher.Hash(ClientSecret), PlatformRole.Admin, DateTimeOffset.UtcNow, "test-seed"));
         await dbContext.SaveChangesAsync();
 
         var client = _factory.CreateClient();

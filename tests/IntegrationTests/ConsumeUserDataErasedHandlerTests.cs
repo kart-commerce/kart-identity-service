@@ -42,12 +42,12 @@ public class ConsumeUserDataErasedHandlerTests : IClassFixture<IdentityApiFactor
 
         using var verifyScope = _factory.Services.CreateScope();
         var dbContext = verifyScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var erasedUser = await dbContext.Users.SingleAsync(u => u.UserId == userId);
+        var erasedUser = await dbContext.Users.SingleAsync(u => u.UserId == UserId.From(userId));
         Assert.Null(erasedUser.Email);
         Assert.Equal("[erased]", erasedUser.DisplayName);
         Assert.Null(erasedUser.PasswordHash);
 
-        var session = await dbContext.Sessions.SingleAsync(s => s.UserId == userId);
+        var session = await dbContext.Sessions.SingleAsync(s => s.UserId == UserId.From(userId));
         Assert.NotNull(session.RevokedAt);
         Assert.Equal(SessionRevocationReason.Erasure, session.RevokedReason);
     }
@@ -56,7 +56,7 @@ public class ConsumeUserDataErasedHandlerTests : IClassFixture<IdentityApiFactor
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var user = await dbContext.Users.SingleAsync(u => u.Email == email);
-        return user.UserId;
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
+        return user.UserId.Value;
     }
 }

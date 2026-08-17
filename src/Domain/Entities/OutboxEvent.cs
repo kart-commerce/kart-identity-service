@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -12,8 +13,17 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class OutboxEvent
 {
-    public Guid EventId { get; private set; }
+    public OutboxEventId EventId { get; private set; }
+
+    /// <summary>
+    /// The aggregate root that raised this event — a <see cref="UserId"/>,
+    /// <see cref="SessionId"/>, etc. depending on <see cref="EventType"/>. Deliberately a raw
+    /// <see cref="Guid"/> rather than one of this domain's strongly-typed IDs: a single outbox
+    /// table carries events for every aggregate type in this service, so there is no one type
+    /// to strengthen it to without erasing that polymorphism.
+    /// </summary>
     public Guid AggregateId { get; private set; }
+
     public string EventType { get; private set; } = string.Empty;
     public string Payload { get; private set; } = string.Empty;
     public DateTimeOffset OccurredAt { get; private set; }
@@ -40,7 +50,7 @@ public sealed class OutboxEvent
     public static OutboxEvent Create(Guid aggregateId, string eventType, string payloadJson, DateTimeOffset now, string createdBy) =>
         new()
         {
-            EventId = Guid.NewGuid(),
+            EventId = OutboxEventId.New(),
             AggregateId = aggregateId,
             EventType = eventType,
             Payload = payloadJson,

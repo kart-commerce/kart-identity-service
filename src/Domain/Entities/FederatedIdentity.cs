@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -9,8 +10,8 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class FederatedIdentity
 {
-    public Guid FederatedIdentityId { get; private set; }
-    public Guid UserId { get; private set; }
+    public FederatedIdentityId FederatedIdentityId { get; private set; }
+    public UserId UserId { get; private set; }
     public FederatedIdpType IdpType { get; private set; }
     public string IdpKey { get; private set; } = string.Empty;
     public string ExternalSubjectId { get; private set; } = string.Empty;
@@ -28,12 +29,12 @@ public sealed class FederatedIdentity
     /// existing link (edge-cases.md, "Federated Login With No Matching Kart
     /// Account") — always self-service, per database-design.md's own note.
     /// </summary>
-    public static FederatedIdentity Link(Guid userId, FederatedIdpType idpType, string idpKey, string externalSubjectId, DateTimeOffset now)
+    public static FederatedIdentity Link(UserId userId, FederatedIdpType idpType, string idpKey, string externalSubjectId, DateTimeOffset now)
     {
         var owner = userId.ToString();
         return new FederatedIdentity
         {
-            FederatedIdentityId = Guid.NewGuid(),
+            FederatedIdentityId = FederatedIdentityId.New(),
             UserId = userId,
             IdpType = idpType,
             IdpKey = idpKey,

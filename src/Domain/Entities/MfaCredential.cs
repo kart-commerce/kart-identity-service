@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -10,7 +11,7 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class MfaCredential
 {
-    public Guid UserId { get; private set; }
+    public UserId UserId { get; private set; }
     public byte[] EncryptedSecret { get; private set; } = [];
     public MfaCredentialStatus Status { get; private set; }
     public DateTimeOffset EnrolledAt { get; private set; }
@@ -25,7 +26,7 @@ public sealed class MfaCredential
     }
 
     /// <summary>api-contract.yaml POST /auth/mfa/enroll — first-ever enrollment for this user.</summary>
-    public static MfaCredential BeginEnrollment(Guid userId, byte[] encryptedSecret, DateTimeOffset now, TimeSpan pendingWindow)
+    public static MfaCredential BeginEnrollment(UserId userId, byte[] encryptedSecret, DateTimeOffset now, TimeSpan pendingWindow)
     {
         var credential = new MfaCredential { UserId = userId, CreatedBy = userId.ToString() };
         credential.RestartEnrollment(encryptedSecret, now, pendingWindow);

@@ -1,6 +1,7 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.InitiatePasswordReset;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,7 +19,7 @@ public class InitiatePasswordResetCommandHandlerTests
     public async Task Handle_ExistingAccount_CreatesPasswordResetTokenRow()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("user@example.com", "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "hash", "Test User", FixedNow);
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 

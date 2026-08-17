@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -28,7 +29,7 @@ public sealed class RegisterUserCommandHandler(
 {
     public async Task<RegisterUserResponse> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim();
+        var email = EmailAddress.From(request.Email.Trim());
 
         // uq_users_email is the authoritative guard against a concurrent duplicate
         // registration — this check only avoids paying the hashing/entity-creation
@@ -38,12 +39,12 @@ public sealed class RegisterUserCommandHandler(
         if (emailTaken)
         {
             logger.LogWarning("Stage {Stage}: registration rejected, email {Email} already registered", "EmailAlreadyRegistered", email);
-            throw new EmailAlreadyRegisteredException(email);
+            throw new EmailAlreadyRegisteredException(email.ToString());
         }
 
         var now = dateTimeProvider.UtcNow;
         var passwordHash = passwordHasher.Hash(request.Password);
-        var displayName = string.IsNullOrWhiteSpace(request.DisplayName) ? email : request.DisplayName;
+        var displayName = string.IsNullOrWhiteSpace(request.DisplayName) ? email.ToString() : request.DisplayName;
 
         var user = User.RegisterNative(email, passwordHash, displayName, now);
         var roleGrant = UserRole.GrantSelfRegisteredCustomer(user.UserId, now);
@@ -58,15 +59,15 @@ public sealed class RegisterUserCommandHandler(
         var accessToken = accessTokenGenerator.Generate(user.UserId.ToString(), roles, scopes: []);
 
         var userRegistered = OutboxEvent.Create(
-            user.UserId,
+            user.UserId.Value,
             "UserRegistered",
-            JsonSerializer.Serialize(new { userId = user.UserId, email = user.Email }),
+            JsonSerializer.Serialize(new { userId = user.UserId.Value, email = user.Email?.Value }),
             now,
             createdBy);
         var sessionCreated = OutboxEvent.Create(
-            user.UserId,
+            user.UserId.Value,
             "SessionCreated",
-            JsonSerializer.Serialize(new { userId = user.UserId, sessionId = session.SessionId }),
+            JsonSerializer.Serialize(new { userId = user.UserId.Value, sessionId = session.SessionId.Value }),
             now,
             createdBy);
 
@@ -86,7 +87,7 @@ public sealed class RegisterUserCommandHandler(
             // Only uq_users_email can plausibly fail here — every other row's key is
             // a freshly generated Guid.
             logger.LogWarning("Stage {Stage}: registration rejected, email {Email} lost the uq_users_email race", "EmailAlreadyRegistered", email);
-            throw new EmailAlreadyRegisteredException(email);
+            throw new EmailAlreadyRegisteredException(email.ToString());
         }
 
         logger.LogInformation(

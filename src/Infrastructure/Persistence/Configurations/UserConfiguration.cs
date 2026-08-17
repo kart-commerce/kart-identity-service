@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,10 +17,12 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(u => u.UserId);
         builder.Property(u => u.UserId)
             .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
             .ValueGeneratedNever();
 
         builder.Property(u => u.Email)
             .HasColumnName("email")
+            .HasConversion(DomainValueConverters.EmailAddress)
             .HasColumnType("citext");
         builder.HasIndex(u => u.Email)
             .IsUnique()

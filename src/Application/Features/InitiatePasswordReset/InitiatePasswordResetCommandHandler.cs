@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,7 @@ public sealed class InitiatePasswordResetCommandHandler(
 {
     public async Task Handle(InitiatePasswordResetCommand request, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim();
+        var email = EmailAddress.From(request.Email.Trim());
         var user = await dbContext.Users.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
         if (user is null)
         {
@@ -43,12 +44,12 @@ public sealed class InitiatePasswordResetCommandHandler(
         var resetToken = PasswordResetToken.Issue(user.UserId, tokenHash, now);
 
         var passwordResetRequested = OutboxEvent.Create(
-            user.UserId,
+            user.UserId.Value,
             "PasswordResetRequested",
             JsonSerializer.Serialize(new
             {
-                userId = user.UserId,
-                email = user.Email,
+                userId = user.UserId.Value,
+                email = user.Email?.Value,
                 resetLink = publicWebLinkBuilder.PasswordResetConfirmLink(rawResetToken),
                 expiresAt = resetToken.ExpiresAt
             }),

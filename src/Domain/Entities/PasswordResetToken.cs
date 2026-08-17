@@ -1,3 +1,5 @@
+using Kart.Identity.Domain.ValueObjects;
+
 namespace Kart.Identity.Domain.Entities;
 
 /// <summary>
@@ -14,8 +16,8 @@ public sealed class PasswordResetToken
     /// </summary>
     public const int ValidityMinutes = 60;
 
-    public Guid ResetTokenId { get; private set; }
-    public Guid UserId { get; private set; }
+    public PasswordResetTokenId ResetTokenId { get; private set; }
+    public UserId UserId { get; private set; }
     public string TokenHash { get; private set; } = string.Empty;
     public DateTimeOffset IssuedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
@@ -33,12 +35,12 @@ public sealed class PasswordResetToken
     /// are always the owning user_id (database-design.md: "a reset token is always
     /// requested by... that same user").
     /// </summary>
-    public static PasswordResetToken Issue(Guid userId, string tokenHash, DateTimeOffset now)
+    public static PasswordResetToken Issue(UserId userId, string tokenHash, DateTimeOffset now)
     {
         var owner = userId.ToString();
         return new PasswordResetToken
         {
-            ResetTokenId = Guid.NewGuid(),
+            ResetTokenId = PasswordResetTokenId.New(),
             UserId = userId,
             TokenHash = tokenHash,
             IssuedAt = now,

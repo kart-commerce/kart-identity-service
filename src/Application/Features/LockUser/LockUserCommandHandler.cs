@@ -1,6 +1,7 @@
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,10 +26,12 @@ public sealed class LockUserCommandHandler(
 {
     public async Task Handle(LockUserCommand request, CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(request.UserId, out var userId))
+        if (!Guid.TryParse(request.UserId, out var rawUserId))
         {
             throw new UserNotFoundException();
         }
+
+        var userId = UserId.From(rawUserId);
 
         var user = await dbContext.Users.FindAsync([userId], cancellationToken);
         if (user is null)
@@ -48,7 +51,7 @@ public sealed class LockUserCommandHandler(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        await revocationStore.RevokeAllForUserAsync(userId, now, cancellationToken);
+        await revocationStore.RevokeAllForUserAsync(userId.Value, now, cancellationToken);
 
         logger.LogInformation(
             "User {UserId} locked by {LockedBy}, {SessionCount} sessions revoked",

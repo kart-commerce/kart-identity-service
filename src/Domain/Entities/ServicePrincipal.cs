@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -13,7 +14,7 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class ServicePrincipal
 {
-    public string ClientId { get; private set; } = string.Empty;
+    public ServicePrincipalClientId ClientId { get; private set; }
     public string ClientSecretHash { get; private set; } = string.Empty;
     public PlatformRole Role { get; private set; }
     public ServicePrincipalStatus Status { get; private set; }
@@ -27,7 +28,7 @@ public sealed class ServicePrincipal
     }
 
     /// <summary>database-design.md: only `Admin` or `PartnerApi` are valid roles for a non-interactive principal.</summary>
-    public static ServicePrincipal Provision(string clientId, string clientSecretHash, PlatformRole role, DateTimeOffset now, string createdBy)
+    public static ServicePrincipal Provision(ServicePrincipalClientId clientId, string clientSecretHash, PlatformRole role, DateTimeOffset now, string createdBy)
     {
         if (role != PlatformRole.Admin && role != PlatformRole.PartnerApi)
         {

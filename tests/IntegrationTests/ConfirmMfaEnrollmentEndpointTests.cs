@@ -32,7 +32,7 @@ public class ConfirmMfaEnrollmentEndpointTests : IClassFixture<IdentityApiFactor
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         var credential = await dbContext.MfaCredentials.SingleAsync(m => m.UserId == userId);
         Assert.Equal("Active", credential.Status.ToString());
         Assert.NotNull(credential.ConfirmedAt);

@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -18,9 +19,13 @@ public sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
         builder.HasKey(s => s.SessionId);
         builder.Property(s => s.SessionId)
             .HasColumnName("session_id")
+            .HasConversion(TypedIdValueConverters.For<SessionId>())
             .ValueGeneratedNever();
 
-        builder.Property(s => s.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(s => s.UserId)
+            .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
+            .IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(s => s.UserId);
 
         builder.Property(s => s.IsFederated).HasColumnName("is_federated").IsRequired();

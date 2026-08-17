@@ -84,7 +84,7 @@ public class IssueServicePrincipalTokenEndpointTests : IClassFixture<IdentityApi
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         var clientId = $"principal-{Guid.NewGuid():N}";
-        var principal = ServicePrincipal.Provision(clientId, passwordHasher.Hash(ClientSecret), role, DateTimeOffset.UtcNow, "test-seed");
+        var principal = ServicePrincipal.Provision(ServicePrincipalClientId.From(clientId), passwordHasher.Hash(ClientSecret), role, DateTimeOffset.UtcNow, "test-seed");
         if (status == ServicePrincipalStatus.Revoked)
         {
             typeof(ServicePrincipal).GetProperty(nameof(ServicePrincipal.Status))!.SetValue(principal, ServicePrincipalStatus.Revoked);

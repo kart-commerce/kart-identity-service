@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -23,8 +24,8 @@ public sealed class Session
     /// </summary>
     public const int FederatedAbsoluteCapHours = 24;
 
-    public Guid SessionId { get; private set; }
-    public Guid UserId { get; private set; }
+    public SessionId SessionId { get; private set; }
+    public UserId UserId { get; private set; }
     public bool IsFederated { get; private set; }
     public string? IdpAlias { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -43,12 +44,12 @@ public sealed class Session
     /// api-contract.yaml POST /auth/register mints a session immediately (Customer
     /// role, MFA off by default) — this is always a native, non-federated session.
     /// </summary>
-    public static Session CreateNative(Guid userId, DateTimeOffset now)
+    public static Session CreateNative(UserId userId, DateTimeOffset now)
     {
         var owner = userId.ToString();
         return new Session
         {
-            SessionId = Guid.NewGuid(),
+            SessionId = SessionId.New(),
             UserId = userId,
             IsFederated = false,
             CreatedAt = now,
@@ -64,12 +65,12 @@ public sealed class Session
     /// federated session gets a 24-hour absolute cap with no sliding extension
     /// (requirement-spec.md §4), unlike native's 30-day sliding / 90-day absolute.
     /// </summary>
-    public static Session CreateFederated(Guid userId, string idpAlias, DateTimeOffset now)
+    public static Session CreateFederated(UserId userId, string idpAlias, DateTimeOffset now)
     {
         var owner = userId.ToString();
         return new Session
         {
-            SessionId = Guid.NewGuid(),
+            SessionId = SessionId.New(),
             UserId = userId,
             IsFederated = true,
             IdpAlias = idpAlias,

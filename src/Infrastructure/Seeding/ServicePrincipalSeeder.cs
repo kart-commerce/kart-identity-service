@@ -1,6 +1,7 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +36,8 @@ public static class ServicePrincipalSeeder
 
         foreach (var entry in entries)
         {
-            var exists = await dbContext.ServicePrincipals.AnyAsync(sp => sp.ClientId == entry.ClientId, cancellationToken);
+            var clientId = ServicePrincipalClientId.From(entry.ClientId);
+            var exists = await dbContext.ServicePrincipals.AnyAsync(sp => sp.ClientId == clientId, cancellationToken);
             if (exists)
             {
                 continue;
@@ -48,7 +50,7 @@ public static class ServicePrincipalSeeder
             }
 
             var principal = ServicePrincipal.Provision(
-                entry.ClientId,
+                clientId,
                 passwordHasher.Hash(entry.ClientSecret),
                 role,
                 DateTimeOffset.UtcNow,

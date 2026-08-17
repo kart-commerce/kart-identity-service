@@ -96,7 +96,7 @@ public class ConfirmMfaEnrollmentCommandHandlerTests
     public async Task Handle_AlreadyActiveCredential_Throws()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var credential = MfaCredential.BeginEnrollment(UserId, [0x01], FixedNow.AddMinutes(-5), TimeSpan.FromMinutes(10));
+        var credential = MfaCredential.BeginEnrollment(Kart.Identity.Domain.ValueObjects.UserId.From(UserId), [0x01], FixedNow.AddMinutes(-5), TimeSpan.FromMinutes(10));
         credential.Confirm(FixedNow.AddMinutes(-1));
         dbContext.MfaCredentials.Add(credential);
         await dbContext.SaveChangesAsync(CancellationToken.None);
@@ -110,7 +110,7 @@ public class ConfirmMfaEnrollmentCommandHandlerTests
     private static void SeedPendingCredential(IdentityDbContext dbContext, DateTimeOffset expiresAt)
     {
         var pendingWindow = TimeSpan.FromMinutes(10);
-        var credential = MfaCredential.BeginEnrollment(UserId, [0xAA, 0xBB], expiresAt.Subtract(pendingWindow), pendingWindow);
+        var credential = MfaCredential.BeginEnrollment(Kart.Identity.Domain.ValueObjects.UserId.From(UserId), [0xAA, 0xBB], expiresAt.Subtract(pendingWindow), pendingWindow);
         dbContext.MfaCredentials.Add(credential);
         dbContext.SaveChanges();
     }

@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -52,7 +53,8 @@ public sealed class EnterpriseOidcCallbackCommandHandler(
         var isNewUser = federatedIdentity is null;
         if (federatedIdentity is null)
         {
-            user = User.ProvisionFederated(identity.Email, displayName: identity.Email ?? identity.Subject, AccountOrigin.Enterprise, now);
+            var email = EmailAddress.TryCreate(identity.Email, out var parsedEmail) ? parsedEmail : (EmailAddress?)null;
+            user = User.ProvisionFederated(email, displayName: identity.Email ?? identity.Subject, AccountOrigin.Enterprise, now);
             federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Enterprise, request.IdpAlias, identity.Subject, now);
             dbContext.Users.Add(user);
             dbContext.FederatedIdentities.Add(federatedIdentity);
@@ -90,11 +92,11 @@ public sealed class EnterpriseOidcCallbackCommandHandler(
         if (isNewUser)
         {
             dbContext.OutboxEvents.Add(OutboxEvent.Create(
-                user.UserId, "UserRegistered", JsonSerializer.Serialize(new { userId = user.UserId, email = user.Email }), now, createdBy));
+                user.UserId.Value, "UserRegistered", JsonSerializer.Serialize(new { userId = user.UserId.Value, email = user.Email?.Value }), now, createdBy));
         }
 
         dbContext.OutboxEvents.Add(OutboxEvent.Create(
-            user.UserId, "SessionCreated", JsonSerializer.Serialize(new { userId = user.UserId, sessionId = session.SessionId }), now, createdBy));
+            user.UserId.Value, "SessionCreated", JsonSerializer.Serialize(new { userId = user.UserId.Value, sessionId = session.SessionId.Value }), now, createdBy));
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

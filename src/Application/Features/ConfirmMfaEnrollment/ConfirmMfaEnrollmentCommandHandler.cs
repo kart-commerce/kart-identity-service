@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public sealed class ConfirmMfaEnrollmentCommandHandler(
 {
     public async Task Handle(ConfirmMfaEnrollmentCommand request, CancellationToken cancellationToken)
     {
-        var credential = await dbContext.MfaCredentials.FindAsync([request.UserId], cancellationToken);
+        var credential = await dbContext.MfaCredentials.FindAsync([UserId.From(request.UserId)], cancellationToken);
         var now = dateTimeProvider.UtcNow;
 
         if (credential is null || credential.Status != MfaCredentialStatus.Pending || credential.PendingExpiresAt <= now)

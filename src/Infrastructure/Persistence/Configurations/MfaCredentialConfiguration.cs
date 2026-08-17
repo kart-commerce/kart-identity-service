@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,6 +17,7 @@ public sealed class MfaCredentialConfiguration : IEntityTypeConfiguration<MfaCre
         builder.HasKey(m => m.UserId);
         builder.Property(m => m.UserId)
             .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
             .ValueGeneratedNever();
         builder.HasOne<User>().WithOne().HasForeignKey<MfaCredential>(m => m.UserId);
 

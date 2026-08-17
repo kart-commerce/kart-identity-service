@@ -1,4 +1,6 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
+using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,6 +21,7 @@ public sealed class OutboxEventConfiguration : IEntityTypeConfiguration<OutboxEv
         builder.HasKey(e => e.EventId);
         builder.Property(e => e.EventId)
             .HasColumnName("event_id")
+            .HasConversion(TypedIdValueConverters.For<OutboxEventId>())
             .ValueGeneratedNever();
 
         // sequence_no (BIGSERIAL in database-design.md) is a DB-generated ordering

@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.Logout;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -47,7 +48,7 @@ public class LogoutCommandHandlerTests
         var (user, session, _) = await SeedSessionWithLiveTokenAsync(dbContext);
         var handler = CreateHandler(dbContext, Substitute.For<ITokenRevocationStore>());
 
-        await handler.Handle(new LogoutCommand(user.UserId, "the-jti", FixedNow.AddMinutes(10), RawRefreshToken), CancellationToken.None);
+        await handler.Handle(new LogoutCommand(user.UserId.Value, "the-jti", FixedNow.AddMinutes(10), RawRefreshToken), CancellationToken.None);
 
         var revokedSession = await dbContext.Sessions.SingleAsync(s => s.SessionId == session.SessionId);
         Assert.NotNull(revokedSession.RevokedAt);
@@ -72,7 +73,7 @@ public class LogoutCommandHandlerTests
         await dbContext.SaveChangesAsync();
         var handler = CreateHandler(dbContext, Substitute.For<ITokenRevocationStore>());
 
-        await handler.Handle(new LogoutCommand(user.UserId, "the-jti", FixedNow.AddMinutes(10), RawRefreshToken), CancellationToken.None);
+        await handler.Handle(new LogoutCommand(user.UserId.Value, "the-jti", FixedNow.AddMinutes(10), RawRefreshToken), CancellationToken.None);
 
         var unchangedSession = await dbContext.Sessions.SingleAsync(s => s.SessionId == session.SessionId);
         Assert.Equal(SessionRevocationReason.AdminLock, unchangedSession.RevokedReason);
@@ -80,7 +81,7 @@ public class LogoutCommandHandlerTests
 
     private static async Task<(User User, Session Session, RefreshToken Token)> SeedSessionWithLiveTokenAsync(IdentityDbContext dbContext)
     {
-        var user = User.RegisterNative("user@example.com", "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "hash", "Test User", FixedNow);
         var session = Session.CreateNative(user.UserId, FixedNow);
         var token = RefreshToken.IssueInitial(session.SessionId, HashOf(RawRefreshToken), FixedNow, session.AbsoluteExpiresAt, user.UserId.ToString());
 

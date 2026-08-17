@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.EnterpriseSamlAssertionConsumer;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -49,7 +50,7 @@ public class EnterpriseSamlAssertionConsumerCommandHandlerTests
     public async Task Handle_SecondLoginForSameExternalIdentity_ReusesExistingUserAndDoesNotRepublishUserRegistered()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.ProvisionFederated("alice@example.com", "alice@example.com", AccountOrigin.Enterprise, FixedNow.AddDays(-1));
+        var user = User.ProvisionFederated(EmailAddress.From("alice@example.com"), "alice@example.com", AccountOrigin.Enterprise, FixedNow.AddDays(-1));
         var federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Enterprise, IdpAlias, "alice@example.com", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);
         dbContext.FederatedIdentities.Add(federatedIdentity);
@@ -105,7 +106,7 @@ public class EnterpriseSamlAssertionConsumerCommandHandlerTests
     public async Task Handle_ExistingUserIsLocked_ThrowsAccountLocked()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.ProvisionFederated("alice@example.com", "alice@example.com", AccountOrigin.Enterprise, FixedNow.AddDays(-1));
+        var user = User.ProvisionFederated(EmailAddress.From("alice@example.com"), "alice@example.com", AccountOrigin.Enterprise, FixedNow.AddDays(-1));
         user.Lock(FixedNow.AddDays(-1), "some-admin");
         var federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Enterprise, IdpAlias, "alice@example.com", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);

@@ -5,6 +5,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.Login;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -32,30 +33,30 @@ public sealed class VerifyOtpCommandHandler(
 {
     public async Task<LoginResult> Handle(VerifyOtpCommand request, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim();
+        var email = EmailAddress.From(request.Email.Trim());
 
-        if (await otpAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
+        if (await otpAttemptThrottle.IsBlockedAsync(email.ToString(), request.IpAddress, cancellationToken))
         {
             logger.LogWarning("Stage {Stage}: OTP verify rejected for {Email}, rate limit exceeded", "OtpRateLimitExceeded", email);
             throw new OtpRateLimitExceededException();
         }
 
-        var userId = await otpCodeStore.VerifyAndConsumeAsync(email, request.Code, cancellationToken);
+        var userId = await otpCodeStore.VerifyAndConsumeAsync(email.ToString(), request.Code, cancellationToken);
         if (userId is null)
         {
-            await otpAttemptThrottle.RecordAttemptAsync(email, request.IpAddress, cancellationToken);
+            await otpAttemptThrottle.RecordAttemptAsync(email.ToString(), request.IpAddress, cancellationToken);
             logger.LogWarning("Stage {Stage}: OTP verify rejected for {Email}, invalid or expired code", "InvalidOrExpiredOtpCode", email);
             throw new InvalidOrExpiredOtpCodeException();
         }
 
-        var authenticatedUser = await dbContext.Users.SingleAsync(u => u.UserId == userId.Value, cancellationToken);
+        var authenticatedUser = await dbContext.Users.SingleAsync(u => u.UserId == UserId.From(userId.Value), cancellationToken);
         if (authenticatedUser.LockedAt is not null)
         {
             logger.LogWarning("Stage {Stage}: OTP verify rejected for user {UserId}, account locked", "AccountLocked", authenticatedUser.UserId);
             throw new AccountLockedException();
         }
 
-        await otpAttemptThrottle.ResetAsync(email, request.IpAddress, cancellationToken);
+        await otpAttemptThrottle.ResetAsync(email.ToString(), request.IpAddress, cancellationToken);
         logger.LogInformation("Stage {Stage}: OTP verified for user {UserId}", "OtpVerified", authenticatedUser.UserId);
 
         var roles = await dbContext.UserRoles
@@ -67,7 +68,7 @@ public sealed class VerifyOtpCommandHandler(
         var mfaRequired = roles.Contains(PlatformRole.Admin) || roles.Contains(PlatformRole.SupportAgent);
         if (mfaRequired)
         {
-            var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId, roleClaims, cancellationToken);
+            var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId.Value, roleClaims, cancellationToken);
             logger.LogInformation("Stage {Stage}: MFA challenge issued for user {UserId} after OTP verification", "MfaChallengeIssued", authenticatedUser.UserId);
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
@@ -83,9 +84,9 @@ public sealed class VerifyOtpCommandHandler(
         var refreshToken = RefreshToken.IssueInitial(session.SessionId, refreshTokenHash, now, session.AbsoluteExpiresAt, createdBy);
 
         var sessionCreated = OutboxEvent.Create(
-            authenticatedUser.UserId,
+            authenticatedUser.UserId.Value,
             "SessionCreated",
-            JsonSerializer.Serialize(new { userId = authenticatedUser.UserId, sessionId = session.SessionId }),
+            JsonSerializer.Serialize(new { userId = authenticatedUser.UserId.Value, sessionId = session.SessionId.Value }),
             now,
             createdBy);
 

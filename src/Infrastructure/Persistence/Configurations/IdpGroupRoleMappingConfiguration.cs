@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,6 +17,7 @@ public sealed class IdpGroupRoleMappingConfiguration : IEntityTypeConfiguration<
         builder.HasKey(m => m.MappingId);
         builder.Property(m => m.MappingId)
             .HasColumnName("mapping_id")
+            .HasConversion(TypedIdValueConverters.For<IdpGroupRoleMappingId>())
             .ValueGeneratedNever();
 
         builder.Property(m => m.IdpAlias).HasColumnName("idp_alias").IsRequired();

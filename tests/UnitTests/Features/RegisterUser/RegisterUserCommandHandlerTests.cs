@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.RegisterUser;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -32,7 +33,7 @@ public class RegisterUserCommandHandlerTests
         Assert.Equal(["customer"], response.Roles);
 
         var user = await dbContext.Users.SingleAsync();
-        Assert.Equal("new.user@example.com", user.Email);
+        Assert.Equal("new.user@example.com", user.Email?.Value);
         Assert.Equal("hashed-password", user.PasswordHash);
         Assert.Equal("New User", user.DisplayName);
 
@@ -71,7 +72,7 @@ public class RegisterUserCommandHandlerTests
     {
         await using var dbContext = CreateInMemoryDbContext();
         var now = FixedNow;
-        dbContext.Users.Add(User.RegisterNative("taken@example.com", "existing-hash", "Existing", now));
+        dbContext.Users.Add(User.RegisterNative(EmailAddress.From("taken@example.com"), "existing-hash", "Existing", now));
         await dbContext.SaveChangesAsync(CancellationToken.None);
 
         var handler = CreateHandler(dbContext);
