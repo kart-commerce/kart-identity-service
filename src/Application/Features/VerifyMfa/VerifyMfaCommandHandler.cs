@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
 using MediatR;
@@ -107,7 +108,13 @@ public sealed class VerifyMfaCommandHandler(
         dbContext.OutboxEvents.Add(sessionCreated);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var accessToken = accessTokenGenerator.Generate(createdBy, challenge.Roles, scopes: []);
+        // The challenge only carries roles as already-minted claim values
+        // (RedisMfaChallengeStore), so scope resolution goes through the roles
+        // one more hop via PlatformRoleClaims.FromClaimValue rather than the
+        // PlatformRole list Login itself resolved from the database.
+        var resolvedRoles = challenge.Roles.Select(PlatformRoleClaims.FromClaimValue);
+        var scopes = PlatformRoleScopes.ResolveScopes(resolvedRoles);
+        var accessToken = accessTokenGenerator.Generate(createdBy, challenge.Roles, scopes);
 
         logger.LogInformation(
             "MFA verified for user {UserId}, session {SessionId} created",
@@ -120,6 +127,6 @@ public sealed class VerifyMfaCommandHandler(
             TokenType: "Bearer",
             ExpiresIn: accessToken.ExpiresInSeconds,
             Roles: challenge.Roles.ToArray(),
-            Scopes: []);
+            Scopes: scopes);
     }
 }

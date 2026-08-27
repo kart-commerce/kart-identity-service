@@ -18,4 +18,20 @@ public static class PlatformRoleClaims
         PlatformRole.PartnerApi => "partner_api",
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, null)
     };
+
+    /// <summary>
+    /// The reverse of <see cref="ToClaimValue"/> — needed wherever a role is only
+    /// available as an already-minted claim value rather than the original
+    /// <see cref="PlatformRole"/> enum, e.g. VerifyMfaCommandHandler resolving
+    /// scopes (PlatformRoleScopes.ResolveScopes) from the role claims an MFA
+    /// challenge carried over from Login.
+    /// </summary>
+    public static PlatformRole FromClaimValue(string claimValue) => claimValue switch
+    {
+        "customer" => PlatformRole.Customer,
+        "support_agent" => PlatformRole.SupportAgent,
+        "admin" => PlatformRole.Admin,
+        "partner_api" => PlatformRole.PartnerApi,
+        _ => throw new ArgumentOutOfRangeException(nameof(claimValue), claimValue, null)
+    };
 }

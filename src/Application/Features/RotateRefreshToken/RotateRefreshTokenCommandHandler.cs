@@ -87,7 +87,8 @@ public sealed class RotateRefreshTokenCommandHandler(
             .Select(r => r.Role)
             .ToListAsync(cancellationToken);
         var roleClaims = roles.Select(PlatformRoleClaims.ToClaimValue).ToArray();
-        var accessToken = accessTokenGenerator.Generate(updatedBy, roleClaims, scopes: []);
+        var scopes = PlatformRoleScopes.ResolveScopes(roles);
+        var accessToken = accessTokenGenerator.Generate(updatedBy, roleClaims, scopes);
 
         logger.LogInformation("Refresh token rotated for session {SessionId}", session.SessionId);
 
@@ -97,6 +98,6 @@ public sealed class RotateRefreshTokenCommandHandler(
             TokenType: "Bearer",
             ExpiresIn: accessToken.ExpiresInSeconds,
             Roles: roleClaims,
-            Scopes: []);
+            Scopes: scopes);
     }
 }

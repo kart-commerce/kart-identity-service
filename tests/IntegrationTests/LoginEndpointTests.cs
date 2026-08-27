@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -45,6 +46,13 @@ public class LoginEndpointTests : IClassFixture<IdentityApiFactory>
         Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("accessToken").GetString()));
         Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("refreshToken").GetString()));
         Assert.Equal("customer", root.GetProperty("roles")[0].GetString());
+
+        // ADR-0025: `ai-assistant.query` is only resolved for Admin/Support
+        // Agent (PlatformRoleScopes) — Customer must keep getting no scopes.
+        Assert.Empty(root.GetProperty("scopes").EnumerateArray());
+        var accessToken = root.GetProperty("accessToken").GetString();
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "scopes");
     }
 
     [Fact]
