@@ -36,7 +36,7 @@ public sealed class RedisMfaChallengeStore(IConnectionMultiplexer redis, IOpaque
             return null;
         }
 
-        var parsed = JsonSerializer.Deserialize<ChallengePayload>(payload!)!;
+        var parsed = JsonSerializer.Deserialize<ChallengePayload>((string)payload!)!;
         return new MfaChallengeState(parsed.UserId, parsed.Roles);
     }
 
