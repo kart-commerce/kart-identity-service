@@ -41,7 +41,7 @@ public class LockUserEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var lockedUser = await dbContext.Users.SingleAsync(u => u.Email == email);
+        var lockedUser = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
         Assert.NotNull(lockedUser.LockedAt);
         var session = await dbContext.Sessions.SingleAsync(s => s.UserId == lockedUser.UserId);
         Assert.Equal(SessionRevocationReason.AdminLock, session.RevokedReason);
@@ -92,7 +92,7 @@ public class LockUserEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId.Value;
         return (userId, email);
     }
 
@@ -109,7 +109,7 @@ public class LockUserEndpointTests : IClassFixture<IdentityApiFactory>
         var passwordHasher = scopeContainer.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         var clientId = $"principal-{Guid.NewGuid():N}";
-        var principal = ServicePrincipal.Provision(clientId, passwordHasher.Hash(ClientSecret), role, DateTimeOffset.UtcNow, "test-seed");
+        var principal = ServicePrincipal.Provision(ServicePrincipalClientId.From(clientId), passwordHasher.Hash(ClientSecret), role, DateTimeOffset.UtcNow, "test-seed");
         dbContext.ServicePrincipals.Add(principal);
         await dbContext.SaveChangesAsync();
 

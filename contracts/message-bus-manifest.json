@@ -10,7 +10,9 @@
   "publishedEvents": [
     { "eventType": "UserRegistered", "exchange": "identity.exchange", "routingKey": "identity.user.registered" },
     { "eventType": "SessionCreated", "exchange": "identity.exchange", "routingKey": "identity.session.created" },
-    { "eventType": "UserAccountUpdated", "exchange": "identity.exchange", "routingKey": "identity.user-account.updated" }
+    { "eventType": "UserAccountUpdated", "exchange": "identity.exchange", "routingKey": "identity.user-account.updated" },
+    { "eventType": "OtpCodeRequested", "exchange": "identity.exchange", "routingKey": "identity.otp.code-requested" },
+    { "eventType": "PasswordResetRequested", "exchange": "identity.exchange", "routingKey": "identity.password-reset.requested" }
   ],
   "queues": [
     {

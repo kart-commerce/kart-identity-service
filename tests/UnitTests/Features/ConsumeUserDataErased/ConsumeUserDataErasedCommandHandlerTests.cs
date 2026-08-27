@@ -2,6 +2,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.ConsumeUserDataErased;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,7 +19,7 @@ public class ConsumeUserDataErasedCommandHandlerTests
     public async Task Handle_ErasesUserPiiDeletesMfaAndFederatedIdentitiesAndRevokesLiveSessions()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("alice@example.com", "hash", "Alice", FixedNow.AddDays(-30));
+        var user = User.RegisterNative(EmailAddress.From("alice@example.com"), "hash", "Alice", FixedNow.AddDays(-30));
         var mfaCredential = MfaCredential.BeginEnrollment(user.UserId, [1, 2, 3], FixedNow.AddDays(-10), TimeSpan.FromMinutes(10));
         mfaCredential.Confirm(FixedNow.AddDays(-10));
         var federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Social, "google", "alice-subject", FixedNow.AddDays(-10));
@@ -33,7 +34,7 @@ public class ConsumeUserDataErasedCommandHandlerTests
         var revocationStore = Substitute.For<ITokenRevocationStore>();
         var handler = CreateHandler(dbContext, revocationStore);
 
-        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId, FixedNow), CancellationToken.None);
+        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId.Value, FixedNow), CancellationToken.None);
 
         var erasedUser = await dbContext.Users.SingleAsync();
         Assert.Null(erasedUser.Email);
@@ -48,20 +49,20 @@ public class ConsumeUserDataErasedCommandHandlerTests
         Assert.NotNull(revokedSession.RevokedAt);
         Assert.Equal(SessionRevocationReason.Erasure, revokedSession.RevokedReason);
 
-        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId, FixedNow, Arg.Any<CancellationToken>());
+        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId.Value, FixedNow, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_UserWithNoMfaOrFederatedIdentity_DoesNotThrow()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("bob@example.com", "hash", "Bob", FixedNow.AddDays(-30));
+        var user = User.RegisterNative(EmailAddress.From("bob@example.com"), "hash", "Bob", FixedNow.AddDays(-30));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext, Substitute.For<ITokenRevocationStore>());
 
-        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId, FixedNow), CancellationToken.None);
+        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId.Value, FixedNow), CancellationToken.None);
 
         var erasedUser = await dbContext.Users.SingleAsync();
         Assert.Null(erasedUser.Email);
@@ -71,20 +72,20 @@ public class ConsumeUserDataErasedCommandHandlerTests
     public async Task Handle_AlreadyErasedUser_RedeliveryIsIdempotentNoOp()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("carol@example.com", "hash", "Carol", FixedNow.AddDays(-30));
+        var user = User.RegisterNative(EmailAddress.From("carol@example.com"), "hash", "Carol", FixedNow.AddDays(-30));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
         var revocationStore = Substitute.For<ITokenRevocationStore>();
         var handler = CreateHandler(dbContext, revocationStore);
 
-        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId, FixedNow), CancellationToken.None);
-        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId, FixedNow.AddMinutes(5)), CancellationToken.None);
+        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId.Value, FixedNow), CancellationToken.None);
+        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId.Value, FixedNow.AddMinutes(5)), CancellationToken.None);
 
         var erasedUser = await dbContext.Users.SingleAsync();
         Assert.Null(erasedUser.Email);
         Assert.Equal("[erased]", erasedUser.DisplayName);
-        await revocationStore.Received(2).RevokeAllForUserAsync(user.UserId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+        await revocationStore.Received(2).RevokeAllForUserAsync(user.UserId.Value, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -103,7 +104,7 @@ public class ConsumeUserDataErasedCommandHandlerTests
     public async Task Handle_AlreadyRevokedSession_LeftUntouched()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("dave@example.com", "hash", "Dave", FixedNow.AddDays(-30));
+        var user = User.RegisterNative(EmailAddress.From("dave@example.com"), "hash", "Dave", FixedNow.AddDays(-30));
         var session = Session.CreateNative(user.UserId, FixedNow.AddDays(-1));
         session.Revoke(SessionRevocationReason.Logout, FixedNow.AddHours(-1), user.UserId.ToString());
         dbContext.Users.Add(user);
@@ -111,7 +112,7 @@ public class ConsumeUserDataErasedCommandHandlerTests
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext, Substitute.For<ITokenRevocationStore>());
-        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId, FixedNow), CancellationToken.None);
+        await handler.Handle(new ConsumeUserDataErasedCommand(user.UserId.Value, FixedNow), CancellationToken.None);
 
         var persistedSession = await dbContext.Sessions.SingleAsync();
         Assert.Equal(SessionRevocationReason.Logout, persistedSession.RevokedReason);

@@ -50,7 +50,7 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         // 2, not 1: registration itself already mints one session (Customer
         // default, before this test's out-of-band Admin grant) — Verify mints a
         // second, distinct one on top of it.
@@ -103,7 +103,7 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         dbContext.UserRoles.Add(UserRole.Grant(userId, PlatformRole.Admin, "test-seed", DateTimeOffset.UtcNow));
         await dbContext.SaveChangesAsync();
 
@@ -188,7 +188,7 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         // No public role-elevation endpoint exists yet (database-design.md's
         // out-of-band note) — same reflection-free direct-seed precedent as
         // LoginCommandHandlerTests, but via the real DbContext over HTTP here.

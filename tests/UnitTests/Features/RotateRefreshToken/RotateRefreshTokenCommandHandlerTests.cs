@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.RotateRefreshToken;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -58,7 +59,7 @@ public class RotateRefreshTokenCommandHandlerTests
     {
         await using var dbContext = CreateInMemoryDbContext();
         var (_, session, oldToken) = await SeedSessionWithLiveTokenAsync(dbContext);
-        oldToken.Consume(FixedNow.AddMinutes(-5), Guid.NewGuid(), "someone");
+        oldToken.Consume(FixedNow.AddMinutes(-5), RefreshTokenId.New(), "someone");
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext);
@@ -137,7 +138,7 @@ public class RotateRefreshTokenCommandHandlerTests
     private static async Task<(User User, Session Session, RefreshToken Token)> SeedSessionWithLiveTokenAsync(
         IdentityDbContext dbContext, DateTimeOffset? tokenExpiresAt = null)
     {
-        var user = User.RegisterNative("user@example.com", "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "hash", "Test User", FixedNow);
         var session = Session.CreateNative(user.UserId, FixedNow);
         var token = RefreshToken.IssueInitial(session.SessionId, HashOf(RawOldToken), FixedNow, session.AbsoluteExpiresAt, user.UserId.ToString());
 

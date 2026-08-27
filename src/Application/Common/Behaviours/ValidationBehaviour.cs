@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Application.Common.Behaviours;
 
@@ -9,7 +10,9 @@ namespace Kart.Identity.Application.Common.Behaviours;
 /// <see cref="ValidationException"/> (api-contract.yaml's 400 responses) rather than
 /// letting each handler validate itself ad hoc.
 /// </summary>
-public sealed class ValidationBehaviour<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+public sealed class ValidationBehaviour<TRequest, TResponse>(
+    IEnumerable<IValidator<TRequest>> validators,
+    ILogger<ValidationBehaviour<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
@@ -30,6 +33,14 @@ public sealed class ValidationBehaviour<TRequest, TResponse>(IEnumerable<IValida
 
         if (failures.Count != 0)
         {
+            var requestName = typeof(TRequest).Name;
+
+            logger.LogWarning(
+                "Stage {Stage}: {RequestName} rejected — {Errors}",
+                $"{requestName}ValidationFailed",
+                requestName,
+                string.Join("; ", failures.Select(f => $"{f.PropertyName}: {f.ErrorMessage}")));
+
             throw new ValidationException(failures);
         }
 

@@ -215,6 +215,10 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
 
+                    b.Property<string>("TraceParent")
+                        .HasColumnType("text")
+                        .HasColumnName("trace_parent");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -232,7 +236,7 @@ namespace Kart.Identity.Infrastructure.Persistence.Migrations
 
                     b.ToTable("outbox_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_outbox_events_event_type", "event_type IN ('UserRegistered', 'SessionCreated', 'UserAccountUpdated')");
+                            t.HasCheckConstraint("ck_outbox_events_event_type", "event_type IN ('UserRegistered', 'SessionCreated', 'UserAccountUpdated', 'OtpCodeRequested', 'PasswordResetRequested')");
                         });
                 });
 

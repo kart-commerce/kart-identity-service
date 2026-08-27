@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -31,10 +32,11 @@ public sealed class LoginCommandHandler(
 {
     public async Task<LoginResult> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        var email = request.Email.Trim();
+        var email = EmailAddress.From(request.Email.Trim());
 
-        if (await loginAttemptThrottle.IsBlockedAsync(email, request.IpAddress, cancellationToken))
+        if (await loginAttemptThrottle.IsBlockedAsync(email.ToString(), request.IpAddress, cancellationToken))
         {
+            logger.LogWarning("Stage {Stage}: login rejected for {Email}, rate limit exceeded", "LoginRateLimitExceeded", email);
             throw new LoginRateLimitExceededException();
         }
 
@@ -46,7 +48,8 @@ public sealed class LoginCommandHandler(
         // response aren't distinguishable by timing.
         if (!passwordHasher.Verify(request.Password, user?.PasswordHash))
         {
-            await loginAttemptThrottle.RecordFailureAsync(email, request.IpAddress, cancellationToken);
+            await loginAttemptThrottle.RecordFailureAsync(email.ToString(), request.IpAddress, cancellationToken);
+            logger.LogWarning("Stage {Stage}: login rejected for {Email}, invalid credentials", "InvalidCredentials", email);
             throw new InvalidCredentialsException();
         }
 
@@ -56,10 +59,11 @@ public sealed class LoginCommandHandler(
 
         if (authenticatedUser.LockedAt is not null)
         {
+            logger.LogWarning("Stage {Stage}: login rejected for user {UserId}, account locked", "AccountLocked", authenticatedUser.UserId);
             throw new AccountLockedException();
         }
 
-        await loginAttemptThrottle.ResetAsync(email, request.IpAddress, cancellationToken);
+        await loginAttemptThrottle.ResetAsync(email.ToString(), request.IpAddress, cancellationToken);
 
         var roles = await dbContext.UserRoles
             .Where(r => r.UserId == authenticatedUser.UserId && r.RevokedAt == null)
@@ -73,10 +77,12 @@ public sealed class LoginCommandHandler(
         var mfaRequired = roles.Contains(PlatformRole.Admin) || roles.Contains(PlatformRole.SupportAgent);
         if (mfaRequired)
         {
-            var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId, roleClaims, cancellationToken);
-            logger.LogInformation("MFA challenge issued for user {UserId}", authenticatedUser.UserId);
+            var challenge = await mfaChallengeStore.CreateAsync(authenticatedUser.UserId.Value, roleClaims, cancellationToken);
+            logger.LogInformation("Stage {Stage}: MFA challenge issued for user {UserId}", "MfaChallengeIssued", authenticatedUser.UserId);
             return new MfaChallengeLoginResult(challenge.ChallengeId, challenge.ExpiresInSeconds);
         }
+
+        logger.LogInformation("Stage {Stage}: MFA not required, issuing tokens directly for user {UserId}", "MfaNotRequiredTokensIssued", authenticatedUser.UserId);
 
         var now = dateTimeProvider.UtcNow;
         var session = Session.CreateNative(authenticatedUser.UserId, now);
@@ -87,9 +93,9 @@ public sealed class LoginCommandHandler(
         var refreshToken = RefreshToken.IssueInitial(session.SessionId, refreshTokenHash, now, session.AbsoluteExpiresAt, createdBy);
 
         var sessionCreated = OutboxEvent.Create(
-            authenticatedUser.UserId,
+            authenticatedUser.UserId.Value,
             "SessionCreated",
-            JsonSerializer.Serialize(new { userId = authenticatedUser.UserId, sessionId = session.SessionId }),
+            JsonSerializer.Serialize(new { userId = authenticatedUser.UserId.Value, sessionId = session.SessionId.Value }),
             now,
             createdBy);
 
@@ -102,9 +108,11 @@ public sealed class LoginCommandHandler(
         var accessToken = accessTokenGenerator.Generate(authenticatedUser.UserId.ToString(), roleClaims, scopes);
 
         logger.LogInformation(
-            "User {UserId} logged in, session {SessionId} created",
+            "Stage {Stage}: user {UserId} logged in, session {SessionId} created, outbox event {SessionCreatedEventId} (SessionCreated) enqueued",
+            "LoginProcessCompletedSuccessfully",
             authenticatedUser.UserId,
-            session.SessionId);
+            session.SessionId,
+            sessionCreated.EventId);
 
         return new AuthenticatedLoginResult(
             AccessToken: accessToken.Token,

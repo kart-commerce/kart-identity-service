@@ -1,6 +1,7 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.InitiatePasswordReset;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,7 +19,7 @@ public class InitiatePasswordResetCommandHandlerTests
     public async Task Handle_ExistingAccount_CreatesPasswordResetTokenRow()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("user@example.com", "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "hash", "Test User", FixedNow);
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
@@ -55,7 +56,10 @@ public class InitiatePasswordResetCommandHandlerTests
         var dateTimeProvider = Substitute.For<IDateTimeProvider>();
         dateTimeProvider.UtcNow.Returns(FixedNow);
 
-        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider, NullLogger<InitiatePasswordResetCommandHandler>.Instance);
+        var publicWebLinkBuilder = Substitute.For<IPublicWebLinkBuilder>();
+        publicWebLinkBuilder.PasswordResetConfirmLink(Arg.Any<string>()).Returns(callInfo => $"https://kart.test/account/password-reset/confirm?token={callInfo.Arg<string>()}");
+
+        return new InitiatePasswordResetCommandHandler(dbContext, opaqueTokenGenerator, tokenHasher, dateTimeProvider, publicWebLinkBuilder, NullLogger<InitiatePasswordResetCommandHandler>.Instance);
     }
 
     private static IdentityDbContext CreateInMemoryDbContext()

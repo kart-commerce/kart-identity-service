@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -7,8 +8,8 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class User
 {
-    public Guid UserId { get; private set; }
-    public string? Email { get; private set; }
+    public UserId UserId { get; private set; }
+    public EmailAddress? Email { get; private set; }
     public string? PasswordHash { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
     public AccountOrigin AccountOrigin { get; private set; }
@@ -28,9 +29,9 @@ public sealed class User
     /// row has no prior authenticated caller to attribute the insert to, so
     /// created_by/updated_by are stamped with the row's own newly-generated user_id.
     /// </summary>
-    public static User RegisterNative(string email, string passwordHash, string displayName, DateTimeOffset now)
+    public static User RegisterNative(EmailAddress email, string passwordHash, string displayName, DateTimeOffset now)
     {
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var self = userId.ToString();
 
         return new User
@@ -55,9 +56,9 @@ public sealed class User
     /// database-design.md); email is nullable since an enterprise assertion is
     /// not guaranteed to carry an email claim.
     /// </summary>
-    public static User ProvisionFederated(string? email, string displayName, AccountOrigin accountOrigin, DateTimeOffset now)
+    public static User ProvisionFederated(EmailAddress? email, string displayName, AccountOrigin accountOrigin, DateTimeOffset now)
     {
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var self = userId.ToString();
 
         return new User
@@ -115,7 +116,7 @@ public sealed class User
     /// ADR-0006). Only the fields the caller supplied change; `null` means "leave
     /// as-is," not "clear the value" (api-contract.yaml's `minProperties: 1` body).
     /// </summary>
-    public void UpdateProfile(string? email, string? displayName, DateTimeOffset now)
+    public void UpdateProfile(EmailAddress? email, string? displayName, DateTimeOffset now)
     {
         if (email is not null)
         {

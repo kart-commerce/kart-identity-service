@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.LockUser;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,7 +35,7 @@ public class LockUserCommandHandlerTests
         Assert.NotNull(revokedSession.RevokedAt);
         Assert.Equal(SessionRevocationReason.AdminLock, revokedSession.RevokedReason);
 
-        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId, FixedNow, Arg.Any<CancellationToken>());
+        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId.Value, FixedNow, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -74,7 +75,7 @@ public class LockUserCommandHandlerTests
 
     private static async Task<(User User, Session Session)> SeedUserWithLiveSessionAsync(IdentityDbContext dbContext)
     {
-        var user = User.RegisterNative("user@example.com", "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "hash", "Test User", FixedNow);
         var session = Session.CreateNative(user.UserId, FixedNow);
 
         dbContext.Users.Add(user);

@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.ConfirmPasswordReset;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -38,7 +39,7 @@ public class ConfirmPasswordResetCommandHandlerTests
         Assert.NotNull(revokedSession.RevokedAt);
         Assert.Equal(SessionRevocationReason.PasswordReset, revokedSession.RevokedReason);
 
-        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId, FixedNow, Arg.Any<CancellationToken>());
+        await revocationStore.Received(1).RevokeAllForUserAsync(user.UserId.Value, FixedNow, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public class ConfirmPasswordResetCommandHandlerTests
     private static async Task<(User User, Session Session, PasswordResetToken ResetToken)> SeedUserWithResetTokenAndLiveSessionAsync(
         IdentityDbContext dbContext)
     {
-        var user = User.RegisterNative("user@example.com", "old-hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("user@example.com"), "old-hash", "Test User", FixedNow);
         var session = Session.CreateNative(user.UserId, FixedNow);
         var resetToken = PasswordResetToken.Issue(user.UserId, HashOf(RawResetToken), FixedNow);
 
@@ -114,7 +115,7 @@ public class ConfirmPasswordResetCommandHandlerTests
 
         if (expiresAt is not null)
         {
-            var user = User.RegisterNative("expired@example.com", "old-hash", "Test User", FixedNow);
+            var user = User.RegisterNative(EmailAddress.From("expired@example.com"), "old-hash", "Test User", FixedNow);
             var resetToken = PasswordResetToken.Issue(user.UserId, HashOf(RawResetToken), FixedNow);
             typeof(PasswordResetToken).GetProperty(nameof(PasswordResetToken.ExpiresAt))!.SetValue(resetToken, expiresAt.Value);
             dbContext.Users.Add(user);

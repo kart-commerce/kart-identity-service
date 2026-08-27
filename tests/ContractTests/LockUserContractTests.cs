@@ -5,6 +5,7 @@ using System.Text.Json;
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,10 +55,10 @@ public class LockUserContractTests : IClassFixture<IdentityApiFactory>
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
 
         var clientId = $"principal-{Guid.NewGuid():N}";
-        var principal = ServicePrincipal.Provision(clientId, passwordHasher.Hash(ClientSecret), PlatformRole.Admin, DateTimeOffset.UtcNow, "test-seed");
+        var principal = ServicePrincipal.Provision(ServicePrincipalClientId.From(clientId), passwordHasher.Hash(ClientSecret), PlatformRole.Admin, DateTimeOffset.UtcNow, "test-seed");
         dbContext.ServicePrincipals.Add(principal);
         await dbContext.SaveChangesAsync();
 

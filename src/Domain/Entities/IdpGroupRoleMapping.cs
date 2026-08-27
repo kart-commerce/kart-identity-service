@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -13,7 +14,7 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class IdpGroupRoleMapping
 {
-    public Guid MappingId { get; private set; }
+    public IdpGroupRoleMappingId MappingId { get; private set; }
     public string IdpAlias { get; private set; } = string.Empty;
     public string ExternalGroupClaim { get; private set; } = string.Empty;
     public PlatformRole Role { get; private set; }
@@ -36,7 +37,7 @@ public sealed class IdpGroupRoleMapping
 
         return new IdpGroupRoleMapping
         {
-            MappingId = Guid.NewGuid(),
+            MappingId = IdpGroupRoleMappingId.New(),
             IdpAlias = idpAlias,
             ExternalGroupClaim = externalGroupClaim,
             Role = role,

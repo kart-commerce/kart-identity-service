@@ -61,7 +61,7 @@ public class ConfirmPasswordResetEndpointTests : IClassFixture<IdentityApiFactor
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         var session = await dbContext.Sessions.SingleAsync(s => s.UserId == userId);
         Assert.Equal(SessionRevocationReason.PasswordReset, session.RevokedReason);
     }
@@ -109,7 +109,7 @@ public class ConfirmPasswordResetEndpointTests : IClassFixture<IdentityApiFactor
         var tokenHasher = scope.ServiceProvider.GetRequiredService<ITokenHasher>();
 
         var rawResetToken = $"raw-reset-token-{Guid.NewGuid():N}";
-        var user = await dbContext.Users.SingleAsync(u => u.Email == email);
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
         var resetToken = PasswordResetToken.Issue(user.UserId, tokenHasher.Hash(rawResetToken), DateTimeOffset.UtcNow);
         dbContext.PasswordResetTokens.Add(resetToken);
         await dbContext.SaveChangesAsync();

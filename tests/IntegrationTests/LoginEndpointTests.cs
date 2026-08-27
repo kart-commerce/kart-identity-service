@@ -135,7 +135,7 @@ public class LoginEndpointTests : IClassFixture<IdentityApiFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var user = await dbContext.Users.SingleAsync(u => u.Email == email);
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
         // No admin-lock endpoint exists yet (IDN-10) — reflection is the only way
         // to put a row into the locked state Login must already defend against.
         typeof(User).GetProperty(nameof(User.LockedAt))!.SetValue(user, DateTimeOffset.UtcNow);
@@ -146,7 +146,7 @@ public class LoginEndpointTests : IClassFixture<IdentityApiFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var user = await dbContext.Users.SingleAsync(u => u.Email == email);
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email));
         dbContext.UserRoles.Add(UserRole.Grant(user.UserId, PlatformRole.Admin, "test-seed", DateTimeOffset.UtcNow));
         await dbContext.SaveChangesAsync();
     }

@@ -1,3 +1,5 @@
+using Kart.Identity.Domain.ValueObjects;
+
 namespace Kart.Identity.Domain.Entities;
 
 /// <summary>
@@ -8,14 +10,14 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class RefreshToken
 {
-    public Guid TokenId { get; private set; }
-    public Guid SessionId { get; private set; }
-    public Guid? ParentTokenId { get; private set; }
+    public RefreshTokenId TokenId { get; private set; }
+    public SessionId SessionId { get; private set; }
+    public RefreshTokenId? ParentTokenId { get; private set; }
     public string TokenHash { get; private set; } = string.Empty;
     public DateTimeOffset IssuedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset? ConsumedAt { get; private set; }
-    public Guid? ReplacedByTokenId { get; private set; }
+    public RefreshTokenId? ReplacedByTokenId { get; private set; }
     public string CreatedBy { get; private set; } = string.Empty;
     public DateTimeOffset UpdatedAt { get; private set; }
     public string UpdatedBy { get; private set; } = string.Empty;
@@ -30,7 +32,7 @@ public sealed class RefreshToken
     /// native sliding-window rule.
     /// </summary>
     public static RefreshToken IssueInitial(
-        Guid sessionId,
+        SessionId sessionId,
         string tokenHash,
         DateTimeOffset now,
         DateTimeOffset sessionAbsoluteExpiresAt,
@@ -41,7 +43,7 @@ public sealed class RefreshToken
 
         return new RefreshToken
         {
-            TokenId = Guid.NewGuid(),
+            TokenId = RefreshTokenId.New(),
             SessionId = sessionId,
             ParentTokenId = null,
             TokenHash = tokenHash,
@@ -63,8 +65,8 @@ public sealed class RefreshToken
     /// own absolute cap is always the tighter bound there.
     /// </summary>
     public static RefreshToken IssueRotated(
-        Guid sessionId,
-        Guid parentTokenId,
+        SessionId sessionId,
+        RefreshTokenId parentTokenId,
         string tokenHash,
         DateTimeOffset now,
         DateTimeOffset sessionAbsoluteExpiresAt,
@@ -75,7 +77,7 @@ public sealed class RefreshToken
 
         return new RefreshToken
         {
-            TokenId = Guid.NewGuid(),
+            TokenId = RefreshTokenId.New(),
             SessionId = sessionId,
             ParentTokenId = parentTokenId,
             TokenHash = tokenHash,
@@ -97,7 +99,7 @@ public sealed class RefreshToken
     /// observing <see cref="ConsumedAt"/> as null; a concurrent winner shows up as
     /// <c>DbUpdateConcurrencyException</c> from <c>SaveChanges</c>, not from here.
     /// </summary>
-    public void Consume(DateTimeOffset now, Guid replacedByTokenId, string updatedBy)
+    public void Consume(DateTimeOffset now, RefreshTokenId replacedByTokenId, string updatedBy)
     {
         ConsumedAt = now;
         ReplacedByTokenId = replacedByTokenId;

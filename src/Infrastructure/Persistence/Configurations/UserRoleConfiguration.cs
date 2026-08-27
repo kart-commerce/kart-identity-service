@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,9 +17,13 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
         builder.HasKey(r => r.UserRoleId);
         builder.Property(r => r.UserRoleId)
             .HasColumnName("user_role_id")
+            .HasConversion(TypedIdValueConverters.For<UserRoleId>())
             .ValueGeneratedNever();
 
-        builder.Property(r => r.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(r => r.UserId)
+            .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
+            .IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(r => r.UserId);
 
         builder.Property(r => r.Role)

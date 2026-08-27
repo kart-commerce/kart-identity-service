@@ -1,7 +1,10 @@
 using System.Diagnostics.Metrics;
 using System.Text;
+using System.Text.Json.Nodes;
+using Kart.Identity.Application.Common;
 using Kart.Identity.Infrastructure.Persistence;
 using Kart.Shared.Messaging;
+using Kart.Shared.Observability;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -129,20 +132,55 @@ public sealed class OutboxRelayHostedService : BackgroundService
 
         foreach (var outboxEvent in pending)
         {
+            var exchange = _manifest.ExchangeFor(outboxEvent.EventType);
+            var routingKey = _manifest.RoutingKeyFor(outboxEvent.EventType);
+
             var properties = channel.CreateBasicProperties();
             properties.Persistent = true;
             properties.MessageId = outboxEvent.EventId.ToString();
             properties.ContentType = "application/json";
 
+            // using var, never an explicit using(...) { BasicPublish(...) } block — a past flow
+            // found that disposing the Activity before the log call below runs leaves that log
+            // line permanently untagged with any TraceId.
+            using var activity = RabbitMqTraceContext.StartPublishActivityFromStoredTraceParent(
+                exchange, routingKey, outboxEvent.TraceParent, properties);
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+
             channel.BasicPublish(
-                exchange: _manifest.ExchangeFor(outboxEvent.EventType),
-                routingKey: _manifest.RoutingKeyFor(outboxEvent.EventType),
+                exchange: exchange,
+                routingKey: routingKey,
                 basicProperties: properties,
-                body: Encoding.UTF8.GetBytes(outboxEvent.Payload));
+                body: Encoding.UTF8.GetBytes(WithEventId(outboxEvent.Payload, outboxEvent.EventId.Value)));
 
             outboxEvent.MarkPublished(DateTimeOffset.UtcNow);
+
+            _logger.LogInformation(
+                "Stage {Stage}: outbox event {EventId} of type {EventType} published to {Exchange}/{RoutingKey}",
+                "OutboxEventPublished",
+                outboxEvent.EventId,
+                outboxEvent.EventType,
+                exchange,
+                routingKey);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Every handler serializes its own event payload without an `eventId` field (the
+    /// entity's own <see cref="Domain.Entities.OutboxEvent.EventId"/> was, until now, only ever
+    /// carried on the AMQP `MessageId` property, never in the JSON body). Consumers across the
+    /// platform (e.g. kart-notification-service's `ProcessNotificationTriggerCommand`) require a
+    /// non-empty `eventId` in the body itself, so every single message published by this service
+    /// was failing consumer-side validation and dead-lettering. Fixed once, here, at the relay's
+    /// own single publish choke point, rather than patching every handler's anonymous payload
+    /// object individually.
+    /// </summary>
+    private static string WithEventId(string payloadJson, Guid eventId)
+    {
+        var node = JsonNode.Parse(payloadJson)?.AsObject() ?? new JsonObject();
+        node["eventId"] = eventId.ToString();
+        return node.ToJsonString();
     }
 }

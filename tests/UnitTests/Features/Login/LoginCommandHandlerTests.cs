@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.Login;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -131,7 +132,7 @@ public class LoginCommandHandlerTests
 
     private static async Task<User> SeedUserWithRoleAsync(IdentityDbContext dbContext, string email, PlatformRole role)
     {
-        var user = User.RegisterNative(email, StoredHash, "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From(email), StoredHash, "Test User", FixedNow);
         dbContext.Users.Add(user);
         // Grant() covers both native self-registration's Customer default and the
         // Admin/SupportAgent grants this test seeds directly — no public endpoint
@@ -141,7 +142,7 @@ public class LoginCommandHandlerTests
         return user;
     }
 
-    private static async Task LockUserAsync(IdentityDbContext dbContext, Guid userId)
+    private static async Task LockUserAsync(IdentityDbContext dbContext, UserId userId)
     {
         var user = await dbContext.Users.SingleAsync(u => u.UserId == userId);
         var lockedAtProperty = typeof(User).GetProperty(nameof(User.LockedAt))!;

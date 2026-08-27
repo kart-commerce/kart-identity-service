@@ -4,6 +4,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.SocialLoginCallback;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,7 +55,7 @@ public class SocialLoginCallbackCommandHandlerTests
     public async Task Handle_SecondLoginForSameExternalIdentity_ReusesExistingUserAndDoesNotRepublishUserRegistered()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.ProvisionFederated("alice@example.com", "alice@example.com", AccountOrigin.Social, FixedNow.AddDays(-1));
+        var user = User.ProvisionFederated(EmailAddress.From("alice@example.com"), "alice@example.com", AccountOrigin.Social, FixedNow.AddDays(-1));
         var federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Social, Provider, "alice-subject", FixedNow.AddDays(-1));
         var roleGrant = UserRole.Grant(user.UserId, PlatformRole.Customer, "social-jit", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);
@@ -78,7 +79,7 @@ public class SocialLoginCallbackCommandHandlerTests
     public async Task Handle_ExistingUserIsLocked_ThrowsAccountLocked()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.ProvisionFederated("alice@example.com", "alice@example.com", AccountOrigin.Social, FixedNow.AddDays(-1));
+        var user = User.ProvisionFederated(EmailAddress.From("alice@example.com"), "alice@example.com", AccountOrigin.Social, FixedNow.AddDays(-1));
         user.Lock(FixedNow.AddDays(-1), "some-admin");
         var federatedIdentity = FederatedIdentity.Link(user.UserId, FederatedIdpType.Social, Provider, "alice-subject", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);

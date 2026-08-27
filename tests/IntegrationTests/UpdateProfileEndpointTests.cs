@@ -34,9 +34,9 @@ public class UpdateProfileEndpointTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var user = await dbContext.Users.SingleAsync(u => u.Email == newEmail);
+        var user = await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(newEmail));
         Assert.Equal("Updated Name", user.DisplayName);
-        var outboxEvent = await dbContext.OutboxEvents.SingleAsync(e => e.AggregateId == user.UserId && e.EventType == "UserAccountUpdated");
+        var outboxEvent = await dbContext.OutboxEvents.SingleAsync(e => e.AggregateId == user.UserId.Value && e.EventType == "UserAccountUpdated");
         Assert.Contains(newEmail, outboxEvent.Payload);
     }
 

@@ -1,4 +1,6 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
+using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,9 +16,13 @@ public sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration<P
         builder.HasKey(t => t.ResetTokenId);
         builder.Property(t => t.ResetTokenId)
             .HasColumnName("reset_token_id")
+            .HasConversion(TypedIdValueConverters.For<PasswordResetTokenId>())
             .ValueGeneratedNever();
 
-        builder.Property(t => t.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(t => t.UserId)
+            .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
+            .IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId);
 
         builder.Property(t => t.TokenHash).HasColumnName("token_hash").IsRequired();

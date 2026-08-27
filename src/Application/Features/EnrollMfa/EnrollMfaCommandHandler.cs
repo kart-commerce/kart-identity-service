@@ -1,5 +1,6 @@
 using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,16 +26,17 @@ public sealed class EnrollMfaCommandHandler(
 
     public async Task<EnrollMfaResponse> Handle(EnrollMfaCommand request, CancellationToken cancellationToken)
     {
-        var user = await dbContext.Users.SingleAsync(u => u.UserId == request.UserId, cancellationToken);
+        var userId = UserId.From(request.UserId);
+        var user = await dbContext.Users.SingleAsync(u => u.UserId == userId, cancellationToken);
 
-        var enrollment = totpProvisioningService.GenerateEnrollment(accountLabel: user.Email ?? user.UserId.ToString());
+        var enrollment = totpProvisioningService.GenerateEnrollment(accountLabel: user.Email?.ToString() ?? user.UserId.ToString());
         var encryptedSecret = mfaSecretCipher.Encrypt(enrollment.Secret);
         var now = dateTimeProvider.UtcNow;
 
-        var credential = await dbContext.MfaCredentials.FindAsync([request.UserId], cancellationToken);
+        var credential = await dbContext.MfaCredentials.FindAsync([userId], cancellationToken);
         if (credential is null)
         {
-            credential = MfaCredential.BeginEnrollment(request.UserId, encryptedSecret, now, PendingEnrollmentWindow);
+            credential = MfaCredential.BeginEnrollment(userId, encryptedSecret, now, PendingEnrollmentWindow);
             dbContext.MfaCredentials.Add(credential);
         }
         else
@@ -44,7 +46,10 @@ public sealed class EnrollMfaCommandHandler(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("MFA enrollment started for user {UserId}", request.UserId);
+        logger.LogInformation(
+            "Stage {Stage}: MFA enrollment started for user {UserId}, credential persisted pending confirmation",
+            "MfaEnrollmentStepCompleted",
+            userId);
 
         return new EnrollMfaResponse(enrollment.ProvisioningUri, credential.PendingExpiresAt!.Value);
     }

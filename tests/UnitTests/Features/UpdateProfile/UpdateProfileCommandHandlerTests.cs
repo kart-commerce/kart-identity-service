@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Interfaces;
 using Kart.Identity.Application.Features.UpdateProfile;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,19 +20,19 @@ public class UpdateProfileCommandHandlerTests
     public async Task Handle_UpdatesEmailAndDisplayName_PersistsAndPublishesUserAccountUpdated()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("old@example.com", "hash", "Old Name", FixedNow.AddDays(-1));
+        var user = User.RegisterNative(EmailAddress.From("old@example.com"), "hash", "Old Name", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext);
-        var response = await handler.Handle(new UpdateProfileCommand(user.UserId, "new@example.com", "New Name"), CancellationToken.None);
+        var response = await handler.Handle(new UpdateProfileCommand(user.UserId.Value, "new@example.com", "New Name"), CancellationToken.None);
 
         Assert.Equal("new@example.com", response.Email);
         Assert.Equal("New Name", response.DisplayName);
         Assert.Equal(FixedNow, response.UpdatedAt);
 
         var persisted = await dbContext.Users.SingleAsync();
-        Assert.Equal("new@example.com", persisted.Email);
+        Assert.Equal("new@example.com", persisted.Email?.Value);
         Assert.Equal("New Name", persisted.DisplayName);
 
         var outboxEvent = await dbContext.OutboxEvents.SingleAsync();
@@ -43,12 +44,12 @@ public class UpdateProfileCommandHandlerTests
     public async Task Handle_OnlyDisplayNameSupplied_LeavesEmailUnchanged()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("keep@example.com", "hash", "Old Name", FixedNow.AddDays(-1));
+        var user = User.RegisterNative(EmailAddress.From("keep@example.com"), "hash", "Old Name", FixedNow.AddDays(-1));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext);
-        var response = await handler.Handle(new UpdateProfileCommand(user.UserId, null, "New Name"), CancellationToken.None);
+        var response = await handler.Handle(new UpdateProfileCommand(user.UserId.Value, null, "New Name"), CancellationToken.None);
 
         Assert.Equal("keep@example.com", response.Email);
         Assert.Equal("New Name", response.DisplayName);
@@ -58,15 +59,15 @@ public class UpdateProfileCommandHandlerTests
     public async Task Handle_EmailAlreadyRegisteredToAnotherAccount_ThrowsEmailAlreadyRegistered()
     {
         await using var dbContext = CreateInMemoryDbContext();
-        var user = User.RegisterNative("mine@example.com", "hash", "Mine", FixedNow.AddDays(-1));
-        var otherUser = User.RegisterNative("taken@example.com", "hash", "Other", FixedNow.AddDays(-1));
+        var user = User.RegisterNative(EmailAddress.From("mine@example.com"), "hash", "Mine", FixedNow.AddDays(-1));
+        var otherUser = User.RegisterNative(EmailAddress.From("taken@example.com"), "hash", "Other", FixedNow.AddDays(-1));
         dbContext.Users.AddRange(user, otherUser);
         await dbContext.SaveChangesAsync();
 
         var handler = CreateHandler(dbContext);
 
         await Assert.ThrowsAsync<EmailAlreadyRegisteredException>(
-            () => handler.Handle(new UpdateProfileCommand(user.UserId, "taken@example.com", null), CancellationToken.None));
+            () => handler.Handle(new UpdateProfileCommand(user.UserId.Value, "taken@example.com", null), CancellationToken.None));
     }
 
     [Fact]

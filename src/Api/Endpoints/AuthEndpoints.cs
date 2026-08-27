@@ -7,8 +7,13 @@ using Kart.Identity.Application.Features.Login;
 using Kart.Identity.Application.Features.Logout;
 using Kart.Identity.Application.Features.RotateRefreshToken;
 using Kart.Identity.Application.Features.RegisterUser;
+using Kart.Identity.Application.Features.RequestOtp;
 using Kart.Identity.Application.Features.UpdateProfile;
+using Kart.Identity.Application.Features.VerifyOtp;
+using Kart.Identity.Application.Common;
+using Kart.Shared.Observability;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Api.Endpoints;
 
@@ -17,8 +22,10 @@ public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/v1/auth/register", async (RegisterRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/register", async (RegisterRequest request, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: register request received for {Email}", "RegisterRequestReceived", request.Email);
             var command = new RegisterUserCommand(request.Email, request.Password, request.DisplayName);
             var response = await sender.Send(command, cancellationToken);
             return Results.Created((string?)null, response);
@@ -28,8 +35,10 @@ public static class AuthEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status409Conflict);
 
-        app.MapPost("/v1/auth/login", async (LoginRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/login", async (LoginRequest request, HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: login request received for {Email}", "LoginRequestReceived", request.Email);
             var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var command = new LoginCommand(request.Email, request.Password, ipAddress);
             var result = await sender.Send(command, cancellationToken);
@@ -90,9 +99,11 @@ public static class AuthEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        app.MapPatch("/v1/auth/profile", async (UpdateProfileRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPatch("/v1/auth/profile", async (UpdateProfileRequest request, HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            logger.LogInformation("Stage {Stage}: profile update request received for user {UserId}", "ProfileUpdateRequestReceived", userId);
             var response = await sender.Send(new UpdateProfileCommand(userId, request.Email, request.DisplayName), cancellationToken);
             return Results.Ok(response);
         })
@@ -103,16 +114,53 @@ public static class AuthEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/v1/auth/password/reset-initiate", async (InitiatePasswordResetRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/otp/request", async (OtpRequestRequest request, HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: OTP request received for {Email}", "OtpRequestReceived", request.Email);
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            await sender.Send(new RequestOtpCommand(request.Email, ipAddress), cancellationToken);
+            return Results.Accepted();
+        })
+        .WithName("RequestOtp")
+        .Produces(StatusCodes.Status202Accepted)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        app.MapPost("/v1/auth/otp/verify", async (OtpVerifyRequest request, HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
+        {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: OTP verify request received for {Email}", "OtpVerifyRequestReceived", request.Email);
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var command = new VerifyOtpCommand(request.Email, request.Code, ipAddress);
+            var result = await sender.Send(command, cancellationToken);
+
+            return result switch
+            {
+                AuthenticatedLoginResult authenticated => Results.Ok(authenticated),
+                MfaChallengeLoginResult challenge => Results.Json(challenge, statusCode: StatusCodes.Status202Accepted),
+                _ => throw new InvalidOperationException($"Unhandled {nameof(LoginResult)} subtype: {result.GetType()}")
+            };
+        })
+        .WithName("VerifyOtp")
+        .Produces<AuthenticatedLoginResult>(StatusCodes.Status200OK)
+        .Produces<MfaChallengeLoginResult>(StatusCodes.Status202Accepted)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        app.MapPost("/v1/auth/password/reset-initiate", async (InitiatePasswordResetRequest request, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
+        {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: password reset initiate request received for {Email}", "PasswordResetInitiateRequestReceived", request.Email);
             await sender.Send(new InitiatePasswordResetCommand(request.Email), cancellationToken);
             return Results.Accepted();
         })
         .WithName("InitiatePasswordReset")
         .Produces(StatusCodes.Status202Accepted);
 
-        app.MapPost("/v1/auth/password/reset-confirm", async (ConfirmPasswordResetRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/password/reset-confirm", async (ConfirmPasswordResetRequest request, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: password reset confirm request received", "PasswordResetConfirmRequestReceived");
             await sender.Send(new ConfirmPasswordResetCommand(request.ResetToken, request.NewPassword), cancellationToken);
             return Results.Ok();
         })
@@ -136,4 +184,8 @@ public static class AuthEndpoints
     private sealed record InitiatePasswordResetRequest(string Email);
 
     private sealed record ConfirmPasswordResetRequest(string ResetToken, string NewPassword);
+
+    private sealed record OtpRequestRequest(string Email);
+
+    private sealed record OtpVerifyRequest(string Email, string Code);
 }

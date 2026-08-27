@@ -5,6 +5,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.VerifyMfa;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,7 +28,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
 
@@ -69,7 +70,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
 
@@ -86,7 +87,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
 
@@ -110,7 +111,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true);
 
@@ -133,7 +134,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: true, decryptThrows: true);
 
@@ -152,7 +153,7 @@ public class VerifyMfaCommandHandlerTests
 
         var mfaChallengeStore = Substitute.For<IMfaChallengeStore>();
         mfaChallengeStore.GetAndConsumeAsync("challenge-id", Arg.Any<CancellationToken>())
-            .Returns(new MfaChallengeState(user.UserId, ["admin"]));
+            .Returns(new MfaChallengeState(user.UserId.Value, ["admin"]));
 
         var handler = CreateHandler(dbContext, mfaChallengeStore, codeIsValid: false);
 
@@ -164,13 +165,13 @@ public class VerifyMfaCommandHandlerTests
 
     private static User SeedUser(IdentityDbContext dbContext)
     {
-        var user = User.RegisterNative("admin@example.com", "hash", "Admin User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From("admin@example.com"), "hash", "Admin User", FixedNow);
         dbContext.Users.Add(user);
         dbContext.SaveChanges();
         return user;
     }
 
-    private static void SeedActiveCredential(IdentityDbContext dbContext, Guid userId)
+    private static void SeedActiveCredential(IdentityDbContext dbContext, UserId userId)
     {
         var credential = MfaCredential.BeginEnrollment(userId, [0xAA, 0xBB], FixedNow.AddMinutes(-10), TimeSpan.FromMinutes(10));
         credential.Confirm(FixedNow.AddMinutes(-5));
@@ -178,7 +179,7 @@ public class VerifyMfaCommandHandlerTests
         dbContext.SaveChanges();
     }
 
-    private static void SeedPendingCredential(IdentityDbContext dbContext, Guid userId, DateTimeOffset pendingExpiresAt)
+    private static void SeedPendingCredential(IdentityDbContext dbContext, UserId userId, DateTimeOffset pendingExpiresAt)
     {
         var credential = MfaCredential.BeginEnrollment(userId, [0xAA, 0xBB], FixedNow.AddMinutes(-1), pendingExpiresAt - FixedNow.AddMinutes(-1));
         dbContext.MfaCredentials.Add(credential);

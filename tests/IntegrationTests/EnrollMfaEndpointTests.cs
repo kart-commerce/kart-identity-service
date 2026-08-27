@@ -64,7 +64,7 @@ public class EnrollMfaEndpointTests : IClassFixture<IdentityApiFactory>
         // table (other tests' enrollments live in the same table).
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         Assert.Equal(1, await dbContext.MfaCredentials.CountAsync(m => m.UserId == userId));
     }
 

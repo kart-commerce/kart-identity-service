@@ -3,6 +3,7 @@ using Kart.Identity.Application.Common.Models;
 using Kart.Identity.Application.Features.EnrollMfa;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,7 +24,7 @@ public class EnrollMfaCommandHandlerTests
 
         var handler = CreateHandler(dbContext);
 
-        var response = await handler.Handle(new EnrollMfaCommand(user.UserId), CancellationToken.None);
+        var response = await handler.Handle(new EnrollMfaCommand(user.UserId.Value), CancellationToken.None);
 
         Assert.Equal("otpauth://totp/fake-uri", response.ProvisioningUri);
         Assert.Equal(FixedNow.AddMinutes(10), response.SecretExpiresAt);
@@ -45,7 +46,7 @@ public class EnrollMfaCommandHandlerTests
 
         var handler = CreateHandler(dbContext);
 
-        await handler.Handle(new EnrollMfaCommand(user.UserId), CancellationToken.None);
+        await handler.Handle(new EnrollMfaCommand(user.UserId.Value), CancellationToken.None);
 
         var credential = await dbContext.MfaCredentials.SingleAsync();
         Assert.Equal([0xAA, 0xBB], credential.EncryptedSecret);
@@ -54,7 +55,7 @@ public class EnrollMfaCommandHandlerTests
 
     private static User SeedUser(IdentityDbContext dbContext, string email)
     {
-        var user = User.RegisterNative(email, "hash", "Test User", FixedNow);
+        var user = User.RegisterNative(EmailAddress.From(email), "hash", "Test User", FixedNow);
         dbContext.Users.Add(user);
         dbContext.SaveChanges();
         return user;

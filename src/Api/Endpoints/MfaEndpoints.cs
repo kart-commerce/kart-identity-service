@@ -1,9 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Kart.Identity.Application.Common;
 using Kart.Identity.Application.Features.ConfirmMfaEnrollment;
 using Kart.Identity.Application.Features.EnrollMfa;
 using Kart.Identity.Application.Features.VerifyMfa;
+using Kart.Shared.Observability;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Kart.Identity.Api.Endpoints;
 
@@ -17,9 +20,11 @@ public static class MfaEndpoints
 {
     public static IEndpointRouteBuilder MapMfaEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/v1/auth/mfa/enroll", async (HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/mfa/enroll", async (HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            logger.LogInformation("Stage {Stage}: MFA enroll request received for user {UserId}", "EnrollMfaRequestReceived", userId);
             var response = await sender.Send(new EnrollMfaCommand(userId), cancellationToken);
             return Results.Ok(response);
         })
@@ -28,9 +33,11 @@ public static class MfaEndpoints
         .Produces<EnrollMfaResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        app.MapPost("/v1/auth/mfa/enroll/confirm", async (ConfirmMfaEnrollmentRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/mfa/enroll/confirm", async (ConfirmMfaEnrollmentRequest request, HttpContext httpContext, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
             var userId = Guid.Parse(httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            logger.LogInformation("Stage {Stage}: MFA enroll confirm request received for user {UserId}", "ConfirmMfaEnrollmentRequestReceived", userId);
             await sender.Send(new ConfirmMfaEnrollmentCommand(userId, request.TotpCode), cancellationToken);
             return Results.Ok();
         })
@@ -40,8 +47,10 @@ public static class MfaEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        app.MapPost("/v1/auth/mfa/verify", async (VerifyMfaRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/v1/auth/mfa/verify", async (VerifyMfaRequest request, ISender sender, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
+            using var _ = KartFlowContext.Push(FlowNames.UserRegistrationLoginAuthentication);
+            logger.LogInformation("Stage {Stage}: MFA verify request received for challenge {ChallengeId}", "VerifyMfaRequestReceived", request.ChallengeId);
             var response = await sender.Send(new VerifyMfaCommand(request.ChallengeId, request.TotpCode), cancellationToken);
             return Results.Ok(response);
         })

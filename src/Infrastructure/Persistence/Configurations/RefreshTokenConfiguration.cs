@@ -1,4 +1,6 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
+using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,12 +16,18 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.HasKey(t => t.TokenId);
         builder.Property(t => t.TokenId)
             .HasColumnName("token_id")
+            .HasConversion(TypedIdValueConverters.For<RefreshTokenId>())
             .ValueGeneratedNever();
 
-        builder.Property(t => t.SessionId).HasColumnName("session_id").IsRequired();
+        builder.Property(t => t.SessionId)
+            .HasColumnName("session_id")
+            .HasConversion(TypedIdValueConverters.For<SessionId>())
+            .IsRequired();
         builder.HasOne<Session>().WithMany().HasForeignKey(t => t.SessionId);
 
-        builder.Property(t => t.ParentTokenId).HasColumnName("parent_token_id");
+        builder.Property(t => t.ParentTokenId)
+            .HasColumnName("parent_token_id")
+            .HasConversion(TypedIdValueConverters.For<RefreshTokenId>());
         builder.HasOne<RefreshToken>().WithMany().HasForeignKey(t => t.ParentTokenId);
 
         builder.Property(t => t.TokenHash).HasColumnName("token_hash").IsRequired();
@@ -40,7 +48,9 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         // this codebase's own handler unit tests rely on).
         builder.Property(t => t.ConsumedAt).HasColumnName("consumed_at").IsConcurrencyToken();
 
-        builder.Property(t => t.ReplacedByTokenId).HasColumnName("replaced_by_token_id");
+        builder.Property(t => t.ReplacedByTokenId)
+            .HasColumnName("replaced_by_token_id")
+            .HasConversion(TypedIdValueConverters.For<RefreshTokenId>());
         builder.HasOne<RefreshToken>().WithMany().HasForeignKey(t => t.ReplacedByTokenId);
 
         builder.Property(t => t.CreatedBy).HasColumnName("created_by").IsRequired();

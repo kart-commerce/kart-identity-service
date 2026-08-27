@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 
 namespace Kart.Identity.Domain.Entities;
 
@@ -9,8 +10,8 @@ namespace Kart.Identity.Domain.Entities;
 /// </summary>
 public sealed class UserRole
 {
-    public Guid UserRoleId { get; private set; }
-    public Guid UserId { get; private set; }
+    public UserRoleId UserRoleId { get; private set; }
+    public UserId UserId { get; private set; }
     public PlatformRole Role { get; private set; }
     public DateTimeOffset GrantedAt { get; private set; }
     public string GrantedBy { get; private set; } = string.Empty;
@@ -23,10 +24,10 @@ public sealed class UserRole
     }
 
     /// <summary>ddd-model.md's `RoleGrant` value object — `(Role, GrantedAt, GrantedBy)`.</summary>
-    public static UserRole Grant(Guid userId, PlatformRole role, string grantedBy, DateTimeOffset now) =>
+    public static UserRole Grant(UserId userId, PlatformRole role, string grantedBy, DateTimeOffset now) =>
         new()
         {
-            UserRoleId = Guid.NewGuid(),
+            UserRoleId = UserRoleId.New(),
             UserId = userId,
             Role = role,
             GrantedAt = now,
@@ -39,6 +40,6 @@ public sealed class UserRole
     /// database-design.md: native self-registration always grants exactly
     /// `Customer`, `granted_by = 'self-registration'`.
     /// </summary>
-    public static UserRole GrantSelfRegisteredCustomer(Guid userId, DateTimeOffset now) =>
+    public static UserRole GrantSelfRegisteredCustomer(UserId userId, DateTimeOffset now) =>
         Grant(userId, PlatformRole.Customer, grantedBy: "self-registration", now);
 }

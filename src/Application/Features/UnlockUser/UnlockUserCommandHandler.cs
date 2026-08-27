@@ -1,5 +1,6 @@
 using Kart.Identity.Application.Common.Exceptions;
 using Kart.Identity.Application.Common.Interfaces;
+using Kart.Identity.Domain.ValueObjects;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -20,10 +21,12 @@ public sealed class UnlockUserCommandHandler(
 {
     public async Task Handle(UnlockUserCommand request, CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(request.UserId, out var userId))
+        if (!Guid.TryParse(request.UserId, out var rawUserId))
         {
             throw new UserNotFoundException();
         }
+
+        var userId = UserId.From(rawUserId);
 
         var user = await dbContext.Users.FindAsync([userId], cancellationToken);
         if (user is null)

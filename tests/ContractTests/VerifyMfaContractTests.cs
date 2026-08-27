@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Kart.Identity.Domain.Entities;
 using Kart.Identity.Domain.Enums;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,7 +58,7 @@ public class VerifyMfaContractTests : IClassFixture<IdentityApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var userId = (await dbContext.Users.SingleAsync(u => u.Email == email)).UserId;
+        var userId = (await dbContext.Users.SingleAsync(u => u.Email == EmailAddress.From(email))).UserId;
         dbContext.UserRoles.Add(UserRole.Grant(userId, PlatformRole.Admin, "test-seed", DateTimeOffset.UtcNow));
         await dbContext.SaveChangesAsync();
 

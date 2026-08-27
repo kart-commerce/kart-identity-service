@@ -1,4 +1,5 @@
 using Kart.Identity.Domain.Entities;
+using Kart.Identity.Domain.ValueObjects;
 using Kart.Identity.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,9 +17,13 @@ public sealed class FederatedIdentityConfiguration : IEntityTypeConfiguration<Fe
         builder.HasKey(f => f.FederatedIdentityId);
         builder.Property(f => f.FederatedIdentityId)
             .HasColumnName("federated_identity_id")
+            .HasConversion(TypedIdValueConverters.For<FederatedIdentityId>())
             .ValueGeneratedNever();
 
-        builder.Property(f => f.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(f => f.UserId)
+            .HasColumnName("user_id")
+            .HasConversion(TypedIdValueConverters.For<UserId>())
+            .IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(f => f.UserId);
 
         builder.Property(f => f.IdpType)

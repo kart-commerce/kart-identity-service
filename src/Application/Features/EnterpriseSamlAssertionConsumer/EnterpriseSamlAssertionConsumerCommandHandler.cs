@@ -100,11 +100,11 @@ public sealed class EnterpriseSamlAssertionConsumerCommandHandler(
             // produced the new Identity row — JIT-provisioning via federation is
             // one such path, not just POST /auth/register.
             dbContext.OutboxEvents.Add(OutboxEvent.Create(
-                user.UserId, "UserRegistered", JsonSerializer.Serialize(new { userId = user.UserId, email = user.Email }), now, createdBy));
+                user.UserId.Value, "UserRegistered", JsonSerializer.Serialize(new { userId = user.UserId.Value, email = user.Email?.Value }), now, createdBy));
         }
 
         dbContext.OutboxEvents.Add(OutboxEvent.Create(
-            user.UserId, "SessionCreated", JsonSerializer.Serialize(new { userId = user.UserId, sessionId = session.SessionId }), now, createdBy));
+            user.UserId.Value, "SessionCreated", JsonSerializer.Serialize(new { userId = user.UserId.Value, sessionId = session.SessionId.Value }), now, createdBy));
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
