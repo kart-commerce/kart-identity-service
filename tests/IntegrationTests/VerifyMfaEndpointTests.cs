@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -54,6 +55,34 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
         // default, before this test's out-of-band Admin grant) — Verify mints a
         // second, distinct one on top of it.
         Assert.Equal(2, await dbContext.Sessions.CountAsync(s => s.UserId == userId));
+    }
+
+    [Theory]
+    [InlineData(PlatformRole.Admin)]
+    [InlineData(PlatformRole.SupportAgent)]
+    public async Task VerifyMfa_AdminOrSupportAgentRole_MintedTokenIncludesAiAssistantQueryScope(PlatformRole role)
+    {
+        // ADR-0025: Identity's role→scope mapping (PlatformRoleScopes) embeds
+        // `ai-assistant.query` in the `scopes` claim for both Admin and Support
+        // Agent — the two roles Login/VerifyMfa gate on mandatory MFA, so this is
+        // the only place either role's token is actually minted end to end.
+        var client = _factory.CreateClient();
+        var (email, password, base32Secret) = await RegisterAdminAndEnrollMfaAsync(client, role);
+
+        var loginResponse = await client.PostAsJsonAsync(LoginPath, new { email, password });
+        Assert.Equal(HttpStatusCode.Accepted, loginResponse.StatusCode);
+        using var loginBody = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        var challengeId = loginBody.RootElement.GetProperty("challengeId").GetString();
+
+        var response = await client.PostAsJsonAsync(VerifyPath, new { challengeId, totpCode = ComputeCurrentCode(base32Secret) });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(["ai-assistant.query"], body.RootElement.GetProperty("scopes").EnumerateArray().Select(s => s.GetString()));
+
+        var accessToken = body.RootElement.GetProperty("accessToken").GetString();
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+        Assert.Contains(jwt.Claims, c => c.Type == "scopes" && c.Value == "ai-assistant.query");
     }
 
     [Fact]
@@ -145,7 +174,10 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private async Task<(string Email, string Password, string Base32Secret)> RegisterAdminAndEnrollMfaAsync(HttpClient client)
+    private Task<(string Email, string Password, string Base32Secret)> RegisterAdminAndEnrollMfaAsync(HttpClient client) =>
+        RegisterAdminAndEnrollMfaAsync(client, PlatformRole.Admin);
+
+    private async Task<(string Email, string Password, string Base32Secret)> RegisterAdminAndEnrollMfaAsync(HttpClient client, PlatformRole role)
     {
         const string password = "SuperSecret1";
         var email = $"mfa-verify-{Guid.NewGuid():N}@example.com";
@@ -160,7 +192,7 @@ public class VerifyMfaEndpointTests : IClassFixture<IdentityApiFactory>
         // No public role-elevation endpoint exists yet (database-design.md's
         // out-of-band note) — same reflection-free direct-seed precedent as
         // LoginCommandHandlerTests, but via the real DbContext over HTTP here.
-        dbContext.UserRoles.Add(UserRole.Grant(userId, PlatformRole.Admin, "test-seed", DateTimeOffset.UtcNow));
+        dbContext.UserRoles.Add(UserRole.Grant(userId, role, "test-seed", DateTimeOffset.UtcNow));
         await dbContext.SaveChangesAsync();
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);

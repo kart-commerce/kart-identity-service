@@ -56,7 +56,8 @@ public sealed class RegisterUserCommandHandler(
         var refreshToken = RefreshToken.IssueInitial(session.SessionId, refreshTokenHash, now, session.AbsoluteExpiresAt, createdBy);
 
         var roles = new[] { PlatformRoleClaims.ToClaimValue(PlatformRole.Customer) };
-        var accessToken = accessTokenGenerator.Generate(user.UserId.ToString(), roles, scopes: []);
+        var scopes = PlatformRoleScopes.ResolveScopes([PlatformRole.Customer]);
+        var accessToken = accessTokenGenerator.Generate(user.UserId.ToString(), roles, scopes);
 
         var userRegistered = OutboxEvent.Create(
             user.UserId.Value,
@@ -104,6 +105,6 @@ public sealed class RegisterUserCommandHandler(
             TokenType: "Bearer",
             ExpiresIn: accessToken.ExpiresInSeconds,
             Roles: roles,
-            Scopes: []);
+            Scopes: scopes);
     }
 }

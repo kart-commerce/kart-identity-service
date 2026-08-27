@@ -108,7 +108,7 @@ public sealed class EnterpriseSamlAssertionConsumerCommandHandler(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var accessToken = accessTokenGenerator.Generate(createdBy, roleClaims, scopes: []);
+        var accessToken = accessTokenGenerator.Generate(createdBy, roleClaims, PlatformRoleScopes.ResolveScopes(mappedRoles));
 
         logger.LogInformation(
             "Enterprise SAML login completed for user {UserId} via idp {IdpAlias}, session {SessionId} created (newUser={IsNewUser})",
